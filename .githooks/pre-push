@@ -1,0 +1,14 @@
+#!/bin/sh
+# Project rule: nobody pushes straight to `production`.
+# `production` is updated only by merging `development` after a code review
+# (a reviewed pull request on the hosting service). Work is pushed to `development`.
+while read local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/production)
+      echo "BLOCKED: direct pushes to 'production' are not allowed."
+      echo "Push to 'development' and open a reviewed pull request into 'production'."
+      exit 1
+      ;;
+  esac
+done
+exit 0

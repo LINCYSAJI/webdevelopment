@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Local development database and uploaded files
+server/.data/
+server/storage/
+
+*.log
+.DS_Store

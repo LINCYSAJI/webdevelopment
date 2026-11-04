@@ -1,0 +1,22 @@
+{
+  "name": "franchise-agreement-portal",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n db,server,client -c magenta,blue,green \"npm run db -w server\" \"npm run dev -w server\" \"npm run dev -w client\"",
+    "db": "npm run db -w server",
+    "migrate": "npm run migrate -w server",
+    "seed:dev": "npm run seed:dev -w server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  }
+}

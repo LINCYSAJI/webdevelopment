@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Defaults until Admin branding loads; stored as "R G B" for Tailwind opacity support. */
+  --brand-primary: 30 58 138;
+  --brand-secondary: 14 165 233;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-md bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .input {
+    @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .card {
+    @apply rounded-lg border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  /* Agreement text, in the editor and wherever it is displayed. */
+  .agreement-content {
+    @apply text-[15px] leading-relaxed text-slate-800;
+  }
+  .agreement-content h2 {
+    @apply mb-3 mt-5 text-xl font-bold text-slate-900 first:mt-0;
+  }
+  .agreement-content h3 {
+    @apply mb-2 mt-4 text-lg font-semibold text-slate-900;
+  }
+  .agreement-content h4 {
+    @apply mb-2 mt-3 font-semibold text-slate-900;
+  }
+  .agreement-content p {
+    @apply mb-3;
+  }
+  .agreement-content ul {
+    @apply mb-3 list-disc pl-6;
+  }
+  .agreement-content ol {
+    @apply mb-3 list-decimal pl-6;
+  }
+  .agreement-content li {
+    @apply mb-1;
+  }
+  .agreement-content li > p {
+    @apply mb-1;
+  }
+  .agreement-content blockquote {
+    @apply mb-3 border-l-4 border-slate-300 pl-4 italic text-slate-600;
+  }
+  .agreement-content hr {
+    @apply my-5 border-slate-200;
+  }
+  .agreement-content mark.merge-missing {
+    @apply rounded bg-amber-100 px-1 text-amber-900;
+  }
+}
