@@ -87,7 +87,13 @@ export async function issueOtp(subject: OtpSubject, target: string, emailPurpose
  */
 export async function verifyOtp(subject: OtpSubject, code: string): Promise<string> {
   const settings = await getSettings();
-  const otp = await Otp.findOne(activeFilter(subject)).sort({ createdAt: -1 });
+  // Count the attempt BEFORE checking the code, in one atomic step, so many guesses sent at
+  // the same moment cannot get past the limit: once the limit is used up, no guess is checked.
+  const otp = await Otp.findOneAndUpdate(
+    { ...activeFilter(subject), attempts: { $lt: settings.otpMaxAttempts } },
+    { $inc: { attempts: 1 } },
+    { sort: { createdAt: -1 }, new: true },
+  );
   if (!otp) throw new AppError(400, 'This code has expired or is no longer valid. Please request a new code.', 'otp_expired');
 
   const expected = Buffer.from(otp.codeHash, 'hex');
@@ -99,8 +105,7 @@ export async function verifyOtp(subject: OtpSubject, code: string): Promise<stri
     return otp.target;
   }
 
-  const updated = await Otp.findOneAndUpdate({ _id: otp._id, invalidatedAt: null }, { $inc: { attempts: 1 } }, { new: true });
-  const attempts = updated?.attempts ?? settings.otpMaxAttempts;
+  const attempts = otp.attempts;
   if (attempts >= settings.otpMaxAttempts) {
     await Otp.updateOne({ _id: otp._id }, { $set: { invalidatedAt: new Date() } });
     throw new AppError(400, 'Too many incorrect attempts. This code no longer works; please request a new code.', 'otp_locked');

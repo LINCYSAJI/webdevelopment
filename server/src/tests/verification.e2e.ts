@@ -147,7 +147,15 @@ ok('SMS code verifies the mobile', r.status === 200 && r.body.status.sms.verifie
 r = await anon.call('POST', '/public/verification/verify', { token: tokenA, channel: 'sms', code: smsCode });
 ok('a used code cannot be used again (already verified is fine)', r.status === 200 && r.body.status.sms.verified);
 
-// Email: hourly limit was not reached for email (4 codes), so send one more.
+// Many guesses at the same moment must not get past the attempt limit.
+await anon.call('POST', '/public/verification/send', { token: tokenA, channel: 'email' });
+const raceCode = await latestCode('priya@example.com');
+const guesses = Array.from({ length: 10 }, (_, i) => String((Number(raceCode) + 1 + i) % 1_000_000).padStart(6, '0'));
+const raced = await Promise.all(guesses.map((code) => anon.call('POST', '/public/verification/verify', { token: tokenA, channel: 'email', code })));
+const checkedGuesses = raced.filter((x) => ['otp_incorrect', 'otp_locked'].includes(x.body.error?.code)).length;
+ok('10 parallel guesses: only 5 are ever checked', checkedGuesses === 5, raced.map((x) => x.body.error?.code));
+
+// Email: hourly limit was not reached for email, so send one more.
 const emailSendsLastHour = await Otp.countDocuments({ channel: 'email' });
 if (emailSendsLastHour < 6) await anon.call('POST', '/public/verification/send', { token: tokenA, channel: 'email' });
 r = await anon.call('POST', '/public/verification/verify', { token: tokenA, channel: 'email', code: await latestCode('priya@example.com') });
