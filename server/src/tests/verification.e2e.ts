@@ -290,6 +290,12 @@ const winner = ra.status === 200 ? tabOne : tabTwo;
 ok('the renewed login still works afterwards', (await winner.call('GET', '/franchise/application')).status === 200);
 ok('no "stolen token" alarm was raised', !(await mongoose.connection.db!.collection('auditlogs').findOne({ action: 'session_token_reuse' })));
 
+// ---------- Lockout cannot be dodged with parallel wrong passwords ----------
+await User.create({ name: 'Lock Test', email: 'lock@check.local', username: 'locktest', role: 'accounts', passwordHash: pw });
+await Promise.all(Array.from({ length: 10 }, () => new Browser().call('POST', '/auth/login', { identifier: 'locktest', password: 'Wrong@0000' })));
+r = await new Browser().call('POST', '/auth/login', { identifier: 'locktest', password: 'Portal@2026' });
+ok('10 parallel wrong passwords lock the account', r.status === 423, r.body);
+
 const actions = (await mongoose.connection.db!.collection('auditlogs').distinct('action')) as string[];
 ok('audit log records verification, account creation and profile changes', ['registration_email_verified', 'registration_mobile_verified', 'registration_verified', 'franchise_account_created', 'email_changed', 'mobile_changed', 'password_changed'].every((a) => actions.includes(a)), actions);
 

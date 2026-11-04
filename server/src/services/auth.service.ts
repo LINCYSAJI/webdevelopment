@@ -40,23 +40,36 @@ export async function findUserByIdentifier(identifier: string): Promise<UserDocu
   return User.findOne({ username: value.toLowerCase(), role: { $ne: 'franchise_user' } });
 }
 
+/**
+ * Counts a failed login with atomic database updates, so many wrong passwords sent at the same
+ * moment are all counted and the lockout always triggers (PRD 13.1).
+ */
 async function recordFailedLogin(user: UserDocument) {
   const { maxAttempts, windowMinutes, lockMinutes } = config.loginLockout;
-  const now = Date.now();
-  const windowStart = user.firstFailedLoginAt?.getTime() ?? 0;
+  const now = new Date();
+  const windowOpenSince = new Date(now.getTime() - windowMinutes * 60_000);
 
-  if (now - windowStart > windowMinutes * 60_000) {
-    user.failedLoginAttempts = 1;
-    user.firstFailedLoginAt = new Date(now);
-  } else {
-    user.failedLoginAttempts = (user.failedLoginAttempts ?? 0) + 1;
+  let counted: UserDocument | null = null;
+  for (let tries = 0; tries < 3 && !counted; tries++) {
+    // Inside the current 15-minute window: add one.
+    counted = await User.findOneAndUpdate(
+      { _id: user._id, firstFailedLoginAt: { $gt: windowOpenSince } },
+      { $inc: { failedLoginAttempts: 1 } },
+      { new: true },
+    );
+    // No open window: start a new one at 1 (only one parallel request can do this).
+    counted ??= await User.findOneAndUpdate(
+      { _id: user._id, $or: [{ firstFailedLoginAt: null }, { firstFailedLoginAt: { $lte: windowOpenSince } }] },
+      { $set: { failedLoginAttempts: 1, firstFailedLoginAt: now } },
+      { new: true },
+    );
   }
-  if (user.failedLoginAttempts >= maxAttempts) {
-    user.lockedUntil = new Date(now + lockMinutes * 60_000);
-    user.failedLoginAttempts = 0;
-    user.firstFailedLoginAt = undefined;
+  if (counted && (counted.failedLoginAttempts ?? 0) >= maxAttempts) {
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { lockedUntil: new Date(now.getTime() + lockMinutes * 60_000), failedLoginAttempts: 0, firstFailedLoginAt: null } },
+    );
   }
-  await user.save();
 }
 
 /** Starts a login session for a user (also used right after a new franchise account is created). */
