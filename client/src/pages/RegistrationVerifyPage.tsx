@@ -39,6 +39,7 @@ export function RegistrationVerifyPage() {
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [fatal, setFatal] = useState<{ message: string; code: string } | null>(null);
   const autoSent = useRef(false);
+  const [sendProblem, setSendProblem] = useState<string | null>(null);
 
   const handleFatal = (err: unknown) => {
     if (err instanceof ApiError && ['verification_not_found', 'already_verified', 'verification_expired'].includes(err.code)) {
@@ -51,17 +52,26 @@ export function RegistrationVerifyPage() {
 
   const load = useCallback(async () => {
     try {
-      const s = await getVerificationStatus(token);
-      setStatus(s);
+      let current = await getVerificationStatus(token);
+      setStatus(current);
       // Send both codes automatically the first time the page opens.
       if (!autoSent.current) {
         autoSent.current = true;
+        const problems: string[] = [];
         for (const channel of ['email', 'sms'] as const) {
-          const st = channel === 'email' ? s.email : s.sms;
-          if (!st.verified && !st.active && !st.resendAvailableAt) {
-            setStatus(await sendVerificationCode(token, channel).catch(() => s));
+          const st = channel === 'email' ? current.email : current.sms;
+          if (st.verified || st.active || st.resendAvailableAt) continue;
+          try {
+            // Keep the newest status, so a later failure never hides a code that was sent.
+            current = await sendVerificationCode(token, channel);
+            setStatus(current);
+          } catch (err) {
+            if (handleFatal(err)) return;
+            const what = channel === 'email' ? 'email' : 'SMS';
+            problems.push(`We couldn't send the ${what} code: ${err instanceof ApiError ? err.message : 'please check your connection.'}`);
           }
         }
+        if (problems.length) setSendProblem(`${problems.join(' ')} Use "Send code" below to try again.`);
       }
     } catch (err) {
       if (!handleFatal(err)) setFatal({ message: 'The verification page could not be loaded. Please refresh.', code: 'error' });
@@ -73,6 +83,7 @@ export function RegistrationVerifyPage() {
   }, [token, load]);
 
   const send = (channel: OtpChannel) => async () => {
+    setSendProblem(null);
     try {
       setStatus(await sendVerificationCode(token, channel));
     } catch (err) {
@@ -149,6 +160,7 @@ export function RegistrationVerifyPage() {
             Your registration has been received. To submit it, enter the codes we sent to your email and mobile. Each code is valid for{' '}
             {status.otpExpiryMinutes} minutes.
           </p>
+          {sendProblem && <Alert tone="warning">{sendProblem}</Alert>}
           <OtpBox title="Email verification" target={status.maskedEmail} {...status.email} onSend={send('email')} onVerify={verify('email')} />
           <OtpBox title="Mobile verification (SMS)" target={`+91 ${status.maskedMobile}`} {...status.sms} onSend={send('sms')} onVerify={verify('sms')} />
           {import.meta.env.DEV && (
