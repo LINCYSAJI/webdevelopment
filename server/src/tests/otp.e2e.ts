@@ -74,6 +74,11 @@ const sends: string[] = [];
 for (let i = 0; i < 7; i++) sends.push(await errorCode(issueOtp(hourly, '9000000009')));
 ok('7th code within an hour is refused', sends.slice(0, 6).every((s) => s === 'ok') && sends[6] === 'otp_limit', sends);
 
+// ---- Several server instances starting at once run migrations safely
+const fresh = mongoose.connection.useDb('migration_race_test').db!;
+const outcome = await Promise.all(Array.from({ length: 4 }, () => runMigrations(fresh).then(() => 'ok', (e: Error) => e.message)));
+ok('4 servers starting together: all start, migrations applied once', outcome.every((o) => o === 'ok') && (await fresh.collection('_migrations').countDocuments()) > 0, outcome);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
 await mongoose.disconnect();
 await rs.stop();
