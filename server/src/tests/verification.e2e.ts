@@ -268,6 +268,23 @@ r = await browserA.call('POST', '/franchise/profile/contact-change', { kind: 'mo
 r = await browserA.call('POST', '/franchise/profile/contact-change/confirm', { kind: 'mobile', code: await latestCode('7000000077') });
 ok('mobile changed after SMS code', r.status === 200 && r.body.user.mobile === '7000000077', r.body);
 
+// Changing to an email already used in another registration raises a duplicate flag.
+ok('application A has no open duplicate flag yet', (await Registration.findById(regA!._id))?.hasOpenDuplicateFlag === false);
+r = await browserA.call('POST', '/franchise/profile/contact-change', { kind: 'email', value: 'c1x@example.com', currentPassword: 'Strong@123' });
+r = await browserA.call('POST', '/franchise/profile/contact-change/confirm', { kind: 'email', code: await latestCode('c1x@example.com') });
+const flaggedA = await Registration.findById(regA!._id);
+const flagA = await mongoose.connection.db!.collection('duplicateflags').findOne({ registrationId: regA!._id, status: 'open' });
+ok('email changed to one used by another registration -> duplicate flag raised', r.status === 200 && flaggedA?.hasOpenDuplicateFlag === true && flagA?.matches?.[0]?.field === 'signatory.email', flagA);
+await new Promise((res) => setTimeout(res, 300));
+ok('Admin emailed about the new possible duplicate', (await outbox().countDocuments({ to: 'admin@check.local', event: 'duplicate_flag' })) >= 2);
+
+// The change is refused if the application went under review in the meantime.
+r = await browserA.call('POST', '/franchise/profile/contact-change', { kind: 'email', value: 'priya.final@example.com', currentPassword: 'Strong@123' });
+await mongoose.connection.db!.collection('registrations').updateOne({ _id: regA!._id }, { $set: { status: 'pending_accounts' } });
+r = await browserA.call('POST', '/franchise/profile/contact-change/confirm', { kind: 'email', code: await latestCode('priya.final@example.com') });
+ok('change refused once the application is under review', r.status === 409 && (await User.findById(regA!.userId))?.email === 'c1x@example.com', r.body);
+await mongoose.connection.db!.collection('registrations').updateOne({ _id: regA!._id }, { $set: { status: 'rejected_by_accounts' } });
+
 r = await browserA.call('POST', '/auth/change-password', { currentPassword: 'Nope@1234', password: 'Newer@1234', confirmPassword: 'Newer@1234' });
 ok('change password: wrong current password refused', r.status === 400, r.body);
 const otherSession = new Browser();

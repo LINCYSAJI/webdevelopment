@@ -10,6 +10,7 @@ import {
   type RegistrationSubmitted,
   type UploadKind,
 } from '@fap/shared';
+import { config } from '../config';
 import { AppError } from '../lib/errors';
 import { DuplicateFlag } from '../models/DuplicateFlag';
 import { PendingUpload } from '../models/PendingUpload';
@@ -20,6 +21,8 @@ import { SubmissionVersion } from '../models/SubmissionVersion';
 import { User } from '../models/User';
 import { recordAcceptance } from './agreement.service';
 import { audit } from './audit.service';
+import { sendEmail } from './email.service';
+import { duplicateFlagEmail } from './email-templates';
 import { hashUploadToken } from './upload.service';
 
 interface RequestContext {
@@ -102,6 +105,25 @@ export async function findPossibleDuplicates(data: PeopleDetails, excludeId?: Ty
     }
   }
   return matches;
+}
+
+/** "contacts.1.email" -> "contact 2 email", "signatory.mobile" -> "applicant mobile" */
+export const describeDuplicateField = (field: string) =>
+  field.replace(/^contacts\.(\d+)\./, (_x, i: string) => `contact ${Number(i) + 1} `).replace('signatory.', 'applicant ');
+
+/** N3: tells every active Admin about a possible duplicate. Never throws. */
+export async function notifyAdminsOfDuplicate(applicationId: string, firmName: string, matchedFields: string[]) {
+  try {
+    const fields = [...new Set(matchedFields.map(describeDuplicateField))];
+    const admins = await User.find({ role: 'admin', isActive: true }, { name: 1, email: 1 });
+    await Promise.allSettled(
+      admins.map((u) =>
+        duplicateFlagEmail(u.name, applicationId, firmName, fields, `${config.CLIENT_ORIGIN}/app`).then((m) => sendEmail({ to: u.email, event: 'duplicate_flag', ...m })),
+      ),
+    );
+  } catch (err) {
+    console.error('Could not send the duplicate-flag email:', err);
+  }
 }
 
 function toWarnings(matches: DuplicateMatch[]): DuplicateWarning[] {

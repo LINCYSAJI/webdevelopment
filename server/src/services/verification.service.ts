@@ -14,12 +14,11 @@ import { hashPassword, issueTokens, type ClientInfo } from './auth.service';
 import { sendEmail } from './email.service';
 import {
   applicationSubmittedEmail,
-  duplicateFlagEmail,
   newApplicationForAccountsEmail,
   newRegistrationAdminEmail,
 } from './email-templates';
 import { issueOtp, otpState, verifyOtp } from './otp.service';
-import { findPossibleDuplicates } from './registration.service';
+import { findPossibleDuplicates, notifyAdminsOfDuplicate } from './registration.service';
 
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -173,14 +172,11 @@ async function notifySubmitted(reg: RegistrationDocument, applicationId: string,
       const make = u.role === 'accounts' ? newApplicationForAccountsEmail : newRegistrationAdminEmail;
       jobs.push(make(u.name, applicationId, firm, url).then((m) => sendEmail({ to: u.email, event: 'application_submitted', ...m })));
     }
+    await Promise.allSettled(jobs);
     if (flagged) {
       const flag = await DuplicateFlag.findOne({ registrationId: reg._id, status: 'open' });
-      const fields = [...new Set((flag?.matches ?? []).map((m) => m.field.replace(/^contacts\.(\d+)\./, (_x, i) => `contact ${Number(i) + 1} `).replace('signatory.', 'applicant ')))];
-      for (const u of staff.filter((x) => x.role === 'admin')) {
-        jobs.push(duplicateFlagEmail(u.name, applicationId, firm, fields, url).then((m) => sendEmail({ to: u.email, event: 'duplicate_flag', ...m })));
-      }
+      await notifyAdminsOfDuplicate(applicationId, firm, (flag?.matches ?? []).map((m) => m.field));
     }
-    await Promise.allSettled(jobs);
   } catch (err) {
     console.error('Could not send submission notifications:', err);
   }

@@ -17,6 +17,7 @@ import { AppError } from '../lib/errors';
 import { storage } from '../lib/storage';
 import { AgreementAcceptance } from '../models/AgreementAcceptance';
 import { AgreementVersion } from '../models/AgreementVersion';
+import { DuplicateFlag } from '../models/DuplicateFlag';
 import { Registration } from '../models/Registration';
 import { RegistrationDocument } from '../models/RegistrationDocument';
 import { RegistrationHistory } from '../models/RegistrationHistory';
@@ -25,6 +26,7 @@ import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
 import { sendEmail } from './email.service';
 import { contactChangedEmail } from './email-templates';
+import { findPossibleDuplicates, notifyAdminsOfDuplicate } from './registration.service';
 import { issueOtp, verifyOtp } from './otp.service';
 
 /** Every query here is limited to the logged-in user's own registration (CLAUDE.md rule 2). */
@@ -192,12 +194,36 @@ export async function confirmContactChange(user: UserDocument, input: ContactCha
   const newValue = await verifyOtp(otpSubject(user, input.kind), input.code);
   const oldEmail = user.email;
   const oldValue = input.kind === 'email' ? user.email : user.mobile;
+  const field = `signatory.${input.kind}`;
+
+  // The same duplicate rule as at registration (PRD 10.1): a value used in another registration
+  // raises a flag for Admin. Only the changed field is checked; the others were checked before.
+  const s = reg.signatory!;
+  const people = {
+    signatory: { email: input.kind === 'email' ? newValue : s.email, mobile: input.kind === 'mobile' ? newValue : s.mobile },
+    contacts: reg.contacts,
+  };
+  const matches = (await findPossibleDuplicates(people, reg._id)).filter((m) => m.field === field);
 
   try {
     await mongoose.connection.transaction(async (session) => {
+      // Conditional on the status at the moment of saving, so a change cannot land while a
+      // resubmission is moving the application into review.
+      const updated = await Registration.findOneAndUpdate(
+        { _id: reg._id, userId: user._id, status: { $nin: UNDER_REVIEW } },
+        { $set: { [field]: newValue, ...(matches.length ? { hasOpenDuplicateFlag: true } : {}) } },
+        { session },
+      );
+      if (!updated) throw new AppError(409, 'You can change your email or mobile only when your application is not under review.', 'under_review');
       await User.updateOne({ _id: user._id }, { $set: { [input.kind]: newValue } }, { session });
-      // Current details only; earlier submission snapshots keep the details as they were.
-      await Registration.updateOne({ _id: reg._id }, { $set: { [`signatory.${input.kind}`]: newValue } }, { session });
+
+      if (matches.length) {
+        const open = await DuplicateFlag.findOne({ registrationId: reg._id, status: 'open' }).session(session);
+        if (open) await DuplicateFlag.updateOne({ _id: open._id }, { $push: { matches: { $each: matches } } }, { session });
+        else await DuplicateFlag.create([{ registrationId: reg._id, submissionVersion: reg.currentSubmissionVersion, matches, status: 'open' }], { session });
+        await audit({ action: 'duplicate_flag_raised', userId: user._id, role: 'franchise_user', targetType: 'registration', targetId: reg._id.toString(), details: { fields: [field], reason: `${input.kind}_changed` }, ip }, session);
+      }
+      await audit({ action: `${input.kind}_changed`, userId: user._id, role: 'franchise_user', targetType: 'user', targetId: user._id.toString(), details: { from: oldValue, to: newValue }, ip }, session);
     });
   } catch (err) {
     if ((err as { code?: number }).code === 11000) {
@@ -206,9 +232,9 @@ export async function confirmContactChange(user: UserDocument, input: ContactCha
     throw err;
   }
 
-  await audit({ action: `${input.kind}_changed`, userId: user._id, role: 'franchise_user', targetType: 'user', targetId: user._id.toString(), details: { from: oldValue, to: newValue }, ip });
   void contactChangedEmail(user.name, input.kind === 'email' ? 'email address' : 'mobile number', newValue).then((m) =>
     sendEmail({ to: oldEmail, event: `${input.kind}_changed`, ...m }),
   );
+  if (matches.length) void notifyAdminsOfDuplicate(reg.applicationId ?? '', reg.firmName, [field]);
   return User.findById(user._id);
 }
