@@ -12,6 +12,9 @@ import { audit } from './audit.service';
 
 const INVALID_LOGIN = 'Invalid login details. Please check and try again.';
 
+/** A refresh token reused within this time of its rotation is a parallel tab, not theft. */
+const REFRESH_RACE_GRACE_MS = 15_000;
+
 export interface ClientInfo {
   ip?: string;
   userAgent?: string;
@@ -126,7 +129,12 @@ export async function refresh(refreshToken: string, client: ClientInfo) {
   }
 
   if (session.replacedAt) {
-    // A rotated token was used again: treat as stolen and sign the user out everywhere.
+    // Two tabs refreshing at the same moment: the other tab already rotated this token and its
+    // new cookies are shared with this tab, so this is not theft. The browser simply retries.
+    if (Date.now() - session.replacedAt.getTime() < REFRESH_RACE_GRACE_MS) {
+      throw new AppError(409, 'Your session was just renewed. Please retry.', 'refresh_race');
+    }
+    // A rotated token was used again later: treat as stolen and sign the user out everywhere.
     await revokeAllSessions(session.userId);
     await audit({ action: 'session_token_reuse', userId: session.userId, ip: client.ip });
     throw new AppError(401, 'Your session has ended. Please log in again.', 'session_expired');
@@ -144,8 +152,12 @@ export async function refresh(refreshToken: string, client: ClientInfo) {
     throw new AppError(401, 'Your session has ended. Please log in again.', 'session_expired');
   }
 
-  session.replacedAt = new Date();
-  await session.save();
+  // Atomic claim: only one request can rotate this token, even if several arrive together.
+  const claimed = await Session.findOneAndUpdate(
+    { _id: session._id, replacedAt: null, revokedAt: null },
+    { $set: { replacedAt: new Date() } },
+  );
+  if (!claimed) throw new AppError(409, 'Your session was just renewed. Please retry.', 'refresh_race');
   return { user, tokens: await issueTokens(user, client) };
 }
 

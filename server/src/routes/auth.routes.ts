@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import { changePasswordSchema, forgotPasswordSchema, loginSchema, setPasswordSchema } from '@fap/shared';
 import { clearAuthCookies, setAuthCookies } from '../lib/auth-cookies';
-import { asyncHandler } from '../lib/errors';
+import { AppError, asyncHandler } from '../lib/errors';
 import { REFRESH_COOKIE, requireAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { toPublicUser } from '../models/User';
@@ -42,7 +42,8 @@ authRouter.post(
       setAuthCookies(res, tokens);
       res.json({ user: toPublicUser(user) });
     } catch (err) {
-      clearAuthCookies(res);
+      // On a parallel-tab race the other tab has already set fresh cookies: keep them.
+      if (!(err instanceof AppError && err.code === 'refresh_race')) clearAuthCookies(res);
       throw err;
     }
   }),

@@ -17,7 +17,9 @@ let refreshing: Promise<boolean> | null = null;
 /** Asks the server for a fresh login token. Concurrent callers share one request. */
 function refreshSession(): Promise<boolean> {
   refreshing ??= fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
-    .then((r) => r.ok)
+    // 409 = another tab renewed the session at the same moment; its new cookies are shared,
+    // so the original request can simply be retried.
+    .then((r) => r.ok || r.status === 409)
     .catch(() => false)
     .finally(() => {
       refreshing = null;

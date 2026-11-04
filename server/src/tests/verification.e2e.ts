@@ -278,6 +278,18 @@ ok('this browser stays logged in', (await browserA.call('GET', '/franchise/appli
 ok('other browsers are logged out', (await otherSession.call('GET', '/franchise/application')).status === 401);
 ok('new password works', (await anon.call('POST', '/auth/login', { identifier: '7000000077', password: 'Newer@1234' })).status === 200);
 
+// ---------- Two tabs refreshing the login at the same moment ----------
+const tabOne = new Browser();
+await tabOne.call('POST', '/auth/login', { identifier: '7000000077', password: 'Newer@1234' });
+const tabTwo = new Browser();
+tabTwo.cookies = new Map(tabOne.cookies);
+const [ra, rb] = await Promise.all([tabOne.call('POST', '/auth/refresh'), tabTwo.call('POST', '/auth/refresh')]);
+const statuses = [ra.status, rb.status].sort().join(',');
+ok('parallel refresh: one renews, the other is told to retry (no forced logout)', statuses === '200,409', [ra.body, rb.body]);
+const winner = ra.status === 200 ? tabOne : tabTwo;
+ok('the renewed login still works afterwards', (await winner.call('GET', '/franchise/application')).status === 200);
+ok('no "stolen token" alarm was raised', !(await mongoose.connection.db!.collection('auditlogs').findOne({ action: 'session_token_reuse' })));
+
 const actions = (await mongoose.connection.db!.collection('auditlogs').distinct('action')) as string[];
 ok('audit log records verification, account creation and profile changes', ['registration_email_verified', 'registration_mobile_verified', 'registration_verified', 'franchise_account_created', 'email_changed', 'mobile_changed', 'password_changed'].every((a) => actions.includes(a)), actions);
 
