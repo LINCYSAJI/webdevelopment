@@ -16,6 +16,7 @@ import {
 } from '@fap/shared';
 import { nextSequence } from '../lib/counters';
 import { AppError } from '../lib/errors';
+import { cleanFileName, sniffMimeType } from '../lib/files';
 import { storage } from '../lib/storage';
 import { AgreementAcceptance } from '../models/AgreementAcceptance';
 import { AgreementVersion, type AgreementVersionDocument } from '../models/AgreementVersion';
@@ -195,15 +196,6 @@ export async function deactivateVersion(id: string, actor: Actor) {
 
 // ---------- PDF agreements ----------
 
-function cleanFileName(raw: string | undefined): string {
-  let name = (raw ?? '').split(/[\\/]/).pop() ?? '';
-  // eslint-disable-next-line no-control-regex
-  name = name.replace(/[\u0000-\u001f\u007f"<>|:*?]/g, '').trim().slice(0, 150);
-  if (!name) name = 'franchise-agreement.pdf';
-  if (!/\.pdf$/i.test(name)) name += '.pdf';
-  return name;
-}
-
 /** Stores an uploaded PDF on a PDF draft, replacing any PDF uploaded to that draft earlier. */
 export async function uploadPdf(id: string, data: Buffer, rawFileName: string | undefined, actor: Actor) {
   const version = await findVersion(id);
@@ -214,7 +206,7 @@ export async function uploadPdf(id: string, data: Buffer, rawFileName: string | 
   if (!data.length) throw new AppError(400, 'Choose a PDF file to upload.', 'empty');
   if (data.length > AGREEMENT_PDF_MAX_BYTES) throw new AppError(413, 'The PDF must be 10 MB or smaller.', 'too_large');
   // Check the actual file content, not just the file name.
-  if (data.subarray(0, 1024).indexOf('%PDF-') === -1) {
+  if (sniffMimeType(data) !== 'application/pdf') {
     throw new AppError(400, 'This file is not a PDF. Please upload the agreement as a PDF.', 'not_pdf');
   }
 
@@ -238,7 +230,7 @@ export async function uploadPdf(id: string, data: Buffer, rawFileName: string | 
   const key = `agreements/${id}/${Date.now()}-${randomBytes(6).toString('hex')}.pdf`;
   await storage.put(key, data);
 
-  const fileName = cleanFileName(rawFileName);
+  const fileName = cleanFileName(rawFileName, 'franchise-agreement.pdf', '.pdf');
   const pdf = { key, fileName, size: data.length, pageCount, sha256, uploadedAt: new Date(), uploadedBy: actor.user._id };
   // Only while it is still a draft: a version published in the meantime stays untouched.
   const updated = await AgreementVersion.findOneAndUpdate({ _id: id, status: 'draft', format: 'pdf' }, { pdf }, { new: true });
@@ -265,7 +257,7 @@ export async function openPdf(id: string, { activeOnly }: { activeOnly: boolean 
   const doc = await AgreementVersion.findOne(activeOnly ? { _id: id, status: 'active' } : { _id: id });
   if (!doc?.pdf) throw new AppError(404, 'This agreement PDF is not available.', 'not_found');
   const file = await storage.open(doc.pdf.key);
-  return { ...file, fileName: doc.pdf.fileName };
+  return { ...file, fileName: doc.pdf.fileName, mimeType: 'application/pdf' };
 }
 
 // ---------- Acceptance (called by the registration submit, build step 3) ----------

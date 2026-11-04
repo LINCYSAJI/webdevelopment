@@ -9,7 +9,7 @@ import {
   type ManagedRole,
 } from '@fap/shared';
 import { AppError, asyncHandler } from '../lib/errors';
-import { sendPdf } from '../lib/send-pdf';
+import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
@@ -192,7 +192,7 @@ adminRouter.put(
 adminRouter.get(
   '/agreements/:id/pdf',
   asyncHandler(async (req, res) => {
-    sendPdf(res, await agreements.openPdf(req.params.id, { activeOnly: false }), req.query.download === '1');
+    sendFile(res, await agreements.openPdf(req.params.id, { activeOnly: false }), req.query.download === '1');
   }),
 );
 

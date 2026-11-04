@@ -4,6 +4,7 @@ import { maskEmail, maskMobile, type OtpChannel, type RegistrationCompleted, typ
 import { config } from '../config';
 import { nextSequence } from '../lib/counters';
 import { AppError } from '../lib/errors';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { DuplicateFlag } from '../models/DuplicateFlag';
 import { Registration, type RegistrationDocument } from '../models/Registration';
 import { RegistrationHistory } from '../models/RegistrationHistory';
@@ -76,9 +77,8 @@ async function nextApplicationId(session: mongoose.ClientSession) {
 }
 
 function duplicateKeyError(err: unknown): AppError | null {
-  const e = err as { code?: number; keyPattern?: Record<string, unknown> };
-  if (e?.code !== 11000) return null;
-  const key = Object.keys(e.keyPattern ?? {})[0];
+  const key = duplicateKeyField(err);
+  if (!key) return null;
   if (key === 'panLock') return new AppError(409, 'A franchise registration with this PAN already exists. Please contact us if you believe this is an error.', 'duplicate_pan');
   if (key === 'gstLock') return new AppError(409, 'A franchise registration with this GST number already exists. Please contact us if you believe this is an error.', 'duplicate_gst');
   if (key === 'email' || key === 'mobile') return new AppError(409, `An account already exists with this ${key}. Please log in instead.`, 'account_exists');

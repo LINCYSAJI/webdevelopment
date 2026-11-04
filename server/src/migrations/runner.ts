@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { mongo } from 'mongoose';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { migrations } from './index';
 
 const LOCK_ID = 'migrations';
@@ -29,7 +30,7 @@ async function acquireLock(db: mongo.Db, owner: string) {
       );
       return;
     } catch (err) {
-      if ((err as { code?: number }).code !== 11000) throw err;
+      if (!duplicateKeyField(err)) throw err;
     }
     if (Date.now() > deadline) throw new Error('Timed out waiting for another server to finish database migrations.');
     await new Promise((r) => setTimeout(r, WAIT_STEP_MS));

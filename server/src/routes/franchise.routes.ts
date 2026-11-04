@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { contactChangeConfirmSchema, contactChangeStartSchema } from '@fap/shared';
 import { asyncHandler } from '../lib/errors';
+import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody, validateBodyDetailed } from '../middleware/validate';
 import { toPublicUser } from '../models/User';
@@ -29,15 +30,7 @@ franchiseRouter.get(
 franchiseRouter.get(
   '/documents/:id',
   asyncHandler(async (req, res) => {
-    const file = await franchise.openMyDocument(req.user!, req.params.id);
-    const asciiName = file.fileName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
-    res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Length', String(file.size));
-    res.setHeader('Content-Disposition', `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(file.fileName)}`);
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    file.stream.on('error', () => res.destroy());
-    file.stream.pipe(res);
+    sendFile(res, await franchise.openMyDocument(req.user!, req.params.id));
   }),
 );
 

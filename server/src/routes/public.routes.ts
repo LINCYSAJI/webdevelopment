@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { UPLOAD_KINDS, registrationSchema, type Branding, type UploadKind, type UploadLimits } from '@fap/shared';
 import { AppError, asyncHandler } from '../lib/errors';
 import { getSettings } from '../models/Settings';
-import { sendPdf } from '../lib/send-pdf';
+import { sendFile } from '../lib/send-file';
 import { validateBodyDetailed } from '../middleware/validate';
 import { getActiveVersion, openPdf } from '../services/agreement.service';
 import { submitRegistration } from '../services/registration.service';
@@ -77,7 +77,7 @@ publicRouter.get(
 publicRouter.get(
   '/agreements/:id/pdf',
   asyncHandler(async (req, res) => {
-    sendPdf(res, await openPdf(req.params.id, { activeOnly: true }), req.query.download === '1');
+    sendFile(res, await openPdf(req.params.id, { activeOnly: true }), req.query.download === '1');
   }),
 );
 

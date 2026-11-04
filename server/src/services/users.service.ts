@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { AdminUserView, ManagedRole, Role, internalUserSchema } from '@fap/shared';
 import { AppError } from '../lib/errors';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
 import { revokeAllSessions } from './auth.service';
@@ -30,9 +31,8 @@ export function toAdminUserView(u: UserDocument): AdminUserView {
 
 /** Turns a unique-index clash into a message naming the field already in use. */
 function duplicateKeyError(err: unknown): AppError | null {
-  const e = err as { code?: number; keyPattern?: Record<string, unknown> };
-  if (e.code !== 11000) return null;
-  const field = Object.keys(e.keyPattern ?? {})[0] ?? 'value';
+  const field = duplicateKeyField(err);
+  if (!field) return null;
   const label = { email: 'email address', username: 'username', mobile: 'mobile number' }[field] ?? field;
   return new AppError(409, `This ${label} is already used by another account.`, 'duplicate');
 }

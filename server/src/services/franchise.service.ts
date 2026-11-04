@@ -14,6 +14,7 @@ import {
   type SubmissionView,
 } from '@fap/shared';
 import { AppError } from '../lib/errors';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { storage } from '../lib/storage';
 import { AgreementAcceptance } from '../models/AgreementAcceptance';
 import { AgreementVersion } from '../models/AgreementVersion';
@@ -226,7 +227,7 @@ export async function confirmContactChange(user: UserDocument, input: ContactCha
       await audit({ action: `${input.kind}_changed`, userId: user._id, role: 'franchise_user', targetType: 'user', targetId: user._id.toString(), details: { from: oldValue, to: newValue }, ip }, session);
     });
   } catch (err) {
-    if ((err as { code?: number }).code === 11000) {
+    if (duplicateKeyField(err)) {
       throw new AppError(409, `This ${input.kind === 'email' ? 'email' : 'mobile number'} is already used by another account.`, 'in_use');
     }
     throw err;

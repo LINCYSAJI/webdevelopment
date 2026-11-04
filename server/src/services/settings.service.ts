@@ -1,5 +1,6 @@
 import type { HolidayInput, HolidayView, SettingsView } from '@fap/shared';
 import { AppError } from '../lib/errors';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { Holiday } from '../models/Holiday';
 import { getSettings } from '../models/Settings';
 import { audit } from './audit.service';
@@ -68,7 +69,7 @@ export async function addHoliday(input: HolidayInput, actor: Actor): Promise<Hol
     await audit({ action: 'holiday_added', userId: actor.user._id, role: 'admin', targetType: 'holiday', targetId: holiday._id.toString(), details: input, ip: actor.ip });
     return toHolidayView(holiday);
   } catch (err) {
-    if ((err as { code?: number }).code === 11000) throw new AppError(409, 'This date is already in the holiday list.', 'duplicate');
+    if (duplicateKeyField(err)) throw new AppError(409, 'This date is already in the holiday list.', 'duplicate');
     throw err;
   }
 }

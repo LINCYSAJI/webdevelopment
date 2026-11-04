@@ -2,6 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import type { OtpChannel, OtpState } from '@fap/shared';
 import { config } from '../config';
 import { AppError } from '../lib/errors';
+import { duplicateKeyField } from '../lib/mongo-errors';
 import { Otp, type OtpPurpose } from '../models/Otp';
 import { OtpThrottle } from '../models/OtpThrottle';
 import { getSettings } from '../models/Settings';
@@ -73,7 +74,7 @@ async function reserveSend(subject: OtpSubject, now: Date, cooldownMs: number) {
       { upsert: true, returnDocument: 'after' },
     )) as { count?: number } | null;
   } catch (err) {
-    if ((err as { code?: number }).code !== 11000) throw err;
+    if (!duplicateKeyField(err)) throw err;
     const row = await OtpThrottle.findById(key);
     const wait = row ? Math.max(1, Math.ceil((row.lastSentAt.getTime() + cooldownMs - now.getTime()) / 1000)) : 1;
     throw new AppError(429, `Please wait ${wait} seconds before requesting a new code.`, 'otp_cooldown');
