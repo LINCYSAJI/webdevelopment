@@ -1,4 +1,4 @@
-import type { FilterQuery, Types } from 'mongoose';
+import type { ClientSession, FilterQuery, Types } from 'mongoose';
 import type { AuditLogView, Paginated, Role } from '@fap/shared';
 import { AuditLog } from '../models/AuditLog';
 import { User } from '../models/User';
@@ -13,8 +13,12 @@ export interface AuditEntry {
   ip?: string;
 }
 
-export async function audit(entry: AuditEntry): Promise<void> {
-  await AuditLog.create({ ...entry, at: new Date() });
+/**
+ * Appends an audit entry. Pass the transaction's session when the entry belongs to a
+ * multi-document change, so it is saved together with that change or not at all (CLAUDE.md rule 3).
+ */
+export async function audit(entry: AuditEntry, session?: ClientSession): Promise<void> {
+  await AuditLog.create([{ ...entry, at: new Date() }], session ? { session } : {});
 }
 
 export interface AuditQuery {

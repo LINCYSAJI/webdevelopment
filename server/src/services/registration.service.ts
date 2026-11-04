@@ -300,24 +300,25 @@ export async function submitRegistration(data: RegistrationData, ctx: RequestCon
     if (matches.length) {
       await DuplicateFlag.create([{ registrationId, submissionVersion: 1, matches, status: 'open' }], { session });
     }
-  });
 
-  await audit({
-    action: 'registration_submitted',
-    targetType: 'registration',
-    targetId: registrationId.toString(),
-    details: { firmName: data.firmName, status: 'pending_verification', contacts: data.contacts.length, duplicateFlag: matches.length > 0 },
-    ip: ctx.ip,
+    // 7. Audit entries, saved together with everything above.
+    await audit(
+      {
+        action: 'registration_submitted',
+        targetType: 'registration',
+        targetId: registrationId.toString(),
+        details: { firmName: data.firmName, status: 'pending_verification', contacts: data.contacts.length, duplicateFlag: matches.length > 0 },
+        ip: ctx.ip,
+      },
+      session,
+    );
+    if (matches.length) {
+      await audit(
+        { action: 'duplicate_flag_raised', targetType: 'registration', targetId: registrationId.toString(), details: { fields: [...new Set(matches.map((m) => m.field))] }, ip: ctx.ip },
+        session,
+      );
+    }
   });
-  if (matches.length) {
-    await audit({
-      action: 'duplicate_flag_raised',
-      targetType: 'registration',
-      targetId: registrationId.toString(),
-      details: { fields: [...new Set(matches.map((m) => m.field))] },
-      ip: ctx.ip,
-    });
-  }
 
   return {
     verificationToken,

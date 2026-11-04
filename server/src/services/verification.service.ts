@@ -141,14 +141,17 @@ export async function completeRegistration(token: string, password: string, clie
         [{ registrationId: reg._id, at: now, event: 'submitted', actorId: user!._id, actorRole: 'franchise_user', fromStatus: 'pending_verification', toStatus: 'pending_accounts', submissionVersion: reg.currentSubmissionVersion }],
         { session },
       );
+
+      // Audit entries are part of the same all-or-nothing save.
+      const userId = user!._id;
+      await audit({ action: 'registration_verified', userId, role: 'franchise_user', targetType: 'registration', targetId: reg._id.toString(), details: { applicationId, duplicateFlag: flagged }, ip: client.ip }, session);
+      await audit({ action: 'franchise_account_created', userId, role: 'franchise_user', targetType: 'user', targetId: userId.toString(), ip: client.ip }, session);
     });
   } catch (err) {
     throw duplicateKeyError(err) ?? err;
   }
 
   const newUser = user as unknown as UserDocument;
-  await audit({ action: 'registration_verified', userId: newUser._id, role: 'franchise_user', targetType: 'registration', targetId: reg._id.toString(), details: { applicationId, duplicateFlag: flagged }, ip: client.ip });
-  await audit({ action: 'franchise_account_created', userId: newUser._id, role: 'franchise_user', targetType: 'user', targetId: newUser._id.toString(), ip: client.ip });
 
   void notifySubmitted(reg, applicationId, flagged);
   const tokens = await issueTokens(newUser, client);

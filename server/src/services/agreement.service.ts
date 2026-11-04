@@ -168,16 +168,19 @@ export async function activateVersion(id: string, actor: Actor) {
     }
     const res = await AgreementVersion.updateOne({ _id: id, status: { $in: ['draft', 'inactive'] } }, update, { session });
     if (res.modifiedCount !== 1) throw new AppError(409, 'This version changed while you were working. Please refresh.', 'conflict');
-  });
 
-  await audit({
-    action: target.status === 'draft' ? 'agreement_published' : 'agreement_activated',
-    userId: actor.user._id,
-    role: 'admin',
-    targetType: 'agreement_version',
-    targetId: id,
-    details: { versionNumber: target.versionNumber, previousActiveVersion: previous },
-    ip: actor.ip,
+    await audit(
+      {
+        action: target.status === 'draft' ? 'agreement_published' : 'agreement_activated',
+        userId: actor.user._id,
+        role: 'admin',
+        targetType: 'agreement_version',
+        targetId: id,
+        details: { versionNumber: target.versionNumber, previousActiveVersion: previous },
+        ip: actor.ip,
+      },
+      session,
+    );
   });
   return getVersion(id);
 }
