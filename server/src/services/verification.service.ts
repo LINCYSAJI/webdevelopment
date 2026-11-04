@@ -38,24 +38,29 @@ const subject = (reg: RegistrationDocument, channel: OtpChannel) => ({ purpose: 
 const isVerified = (reg: RegistrationDocument, channel: OtpChannel) =>
   !!(channel === 'email' ? reg.verification?.emailVerifiedAt : reg.verification?.mobileVerifiedAt);
 
-export async function getStatus(token: string): Promise<VerificationStatus> {
-  const reg = await findPending(token);
+/** Builds the page status from an already-loaded registration; both channels are read in parallel. */
+async function buildStatus(reg: RegistrationDocument): Promise<VerificationStatus> {
   const settings = await getSettings();
-  const state = async (channel: OtpChannel) => ({ verified: isVerified(reg, channel), ...(await otpState(subject(reg, channel))) });
+  const state = async (channel: OtpChannel) => ({ verified: isVerified(reg, channel), ...(await otpState(subject(reg, channel), settings)) });
+  const [email, sms] = await Promise.all([state('email'), state('sms')]);
   return {
     maskedEmail: maskEmail(reg.signatory!.email),
     maskedMobile: maskMobile(reg.signatory!.mobile),
-    email: await state('email'),
-    sms: await state('sms'),
+    email,
+    sms,
     otpExpiryMinutes: settings.otpExpiryMinutes,
   };
+}
+
+export async function getStatus(token: string): Promise<VerificationStatus> {
+  return buildStatus(await findPending(token));
 }
 
 export async function sendCode(token: string, channel: OtpChannel) {
   const reg = await findPending(token);
   if (isVerified(reg, channel)) throw new AppError(409, `Your ${channel === 'email' ? 'email' : 'mobile'} is already verified.`, 'already_verified_channel');
   await issueOtp(subject(reg, channel), channel === 'email' ? reg.signatory!.email : reg.signatory!.mobile);
-  return getStatus(token);
+  return buildStatus(reg);
 }
 
 export async function verifyCode(token: string, channel: OtpChannel, code: string, ip?: string) {
@@ -63,10 +68,13 @@ export async function verifyCode(token: string, channel: OtpChannel, code: strin
   if (!isVerified(reg, channel)) {
     await verifyOtp(subject(reg, channel), code);
     const field = channel === 'email' ? 'verification.emailVerifiedAt' : 'verification.mobileVerifiedAt';
-    await Registration.updateOne({ _id: reg._id, status: 'pending_verification' }, { $set: { [field]: new Date() } });
+    const now = new Date();
+    await Registration.updateOne({ _id: reg._id, status: 'pending_verification' }, { $set: { [field]: now } });
     await audit({ action: channel === 'email' ? 'registration_email_verified' : 'registration_mobile_verified', targetType: 'registration', targetId: reg._id.toString(), ip });
+    // Reflect the change on the copy already in memory instead of loading it again.
+    reg.set(field, now);
   }
-  return getStatus(token);
+  return buildStatus(reg);
 }
 
 /** "APP-2026-0001": numbered per calendar year (IST) when verification completes (PRD A11). */

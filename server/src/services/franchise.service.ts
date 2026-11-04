@@ -28,7 +28,7 @@ import { audit } from './audit.service';
 import { sendEmail } from './email.service';
 import { contactChangedEmail } from './email-templates';
 import { findPossibleDuplicates, notifyAdminsOfDuplicate } from './registration.service';
-import { issueOtp, verifyOtp } from './otp.service';
+import { issueOtp, otpState, verifyOtp } from './otp.service';
 
 /** Every query here is limited to the logged-in user's own registration (CLAUDE.md rule 2). */
 async function myRegistration(user: UserDocument) {
@@ -184,7 +184,8 @@ export async function startContactChange(user: UserDocument, input: ContactChang
   if (await User.exists({ [input.kind]: input.value, _id: { $ne: user._id } })) {
     throw new AppError(409, `This ${input.kind === 'email' ? 'email' : 'mobile number'} is already used by another account.`, 'in_use', { fields: { value: 'Already used by another account.' } });
   }
-  const state = await issueOtp(otpSubject(user, input.kind), input.value, 'change_email');
+  await issueOtp(otpSubject(user, input.kind), input.value, 'change_email');
+  const state = await otpState(otpSubject(user, input.kind));
   await audit({ action: `${input.kind}_change_requested`, userId: user._id, role: 'franchise_user', ip });
   return { sentTo: input.kind === 'email' ? maskEmail(input.value) : maskMobile(input.value), ...state };
 }

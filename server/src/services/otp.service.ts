@@ -31,11 +31,13 @@ const activeFilter = (subject: OtpSubject) => ({
   expiresAt: { $gt: new Date() },
 });
 
+type SettingsDoc = Awaited<ReturnType<typeof getSettings>>;
+
 const throttleKey = (subject: OtpSubject) => `${subject.subjectKey}|${subject.purpose}|${subject.channel}`;
 
 /** Whether a usable code exists and when Resend becomes available. */
-export async function otpState(subject: OtpSubject): Promise<Omit<OtpState, 'verified'>> {
-  const settings = await getSettings();
+export async function otpState(subject: OtpSubject, loadedSettings?: SettingsDoc): Promise<Omit<OtpState, 'verified'>> {
+  const settings = loadedSettings ?? (await getSettings());
   const [throttle, active] = await Promise.all([
     OtpThrottle.findById(throttleKey(subject)),
     Otp.findOne(activeFilter(subject)).sort({ createdAt: -1 }),
@@ -120,7 +122,6 @@ export async function issueOtp(subject: OtpSubject, target: string, emailPurpose
 
   // Delivered: from now on only the newest code works.
   await Otp.updateMany({ ...activeFilter(subject), _id: { $ne: otp._id } }, { $set: { invalidatedAt: new Date() } });
-  return otpState(subject);
 }
 
 /**
