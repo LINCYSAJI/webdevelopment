@@ -3,6 +3,7 @@ import type { OtpChannel, OtpState } from '@fap/shared';
 import { config } from '../config';
 import { AppError } from '../lib/errors';
 import { Otp, type OtpPurpose } from '../models/Otp';
+import { OtpThrottle } from '../models/OtpThrottle';
 import { getSettings } from '../models/Settings';
 import { sendEmail } from './email.service';
 import { otpEmail } from './email-templates';
@@ -29,12 +30,16 @@ const activeFilter = (subject: OtpSubject) => ({
   expiresAt: { $gt: new Date() },
 });
 
+const throttleKey = (subject: OtpSubject) => `${subject.subjectKey}|${subject.purpose}|${subject.channel}`;
+
 /** Whether a usable code exists and when Resend becomes available. */
 export async function otpState(subject: OtpSubject): Promise<Omit<OtpState, 'verified'>> {
   const settings = await getSettings();
-  const latest = await Otp.findOne(subject).sort({ createdAt: -1 });
-  const active = await Otp.findOne(activeFilter(subject)).sort({ createdAt: -1 });
-  const resendAt = latest ? new Date(latest.createdAt.getTime() + settings.otpResendCooldownSeconds * 1000) : null;
+  const [throttle, active] = await Promise.all([
+    OtpThrottle.findById(throttleKey(subject)),
+    Otp.findOne(activeFilter(subject)).sort({ createdAt: -1 }),
+  ]);
+  const resendAt = throttle ? new Date(throttle.lastSentAt.getTime() + settings.otpResendCooldownSeconds * 1000) : null;
   return {
     active: !!active,
     expiresAt: active?.expiresAt.toISOString() ?? null,
@@ -43,29 +48,55 @@ export async function otpState(subject: OtpSubject): Promise<Omit<OtpState, 'ver
 }
 
 /**
- * Sends a new 6-digit code, replacing any earlier one. Enforces the resend cooldown and the
- * hourly limit from Settings.
+ * Reserves one send for this person + channel in a single atomic step. Fails if the resend
+ * cooldown has not passed (parallel clicks included) or the hourly limit is used up.
+ */
+async function reserveSend(subject: OtpSubject, now: Date, cooldownMs: number) {
+  const key = throttleKey(subject);
+  const hourAgo = new Date(now.getTime() - 3600_000);
+  const inWindow = { $gt: ['$windowStart', hourAgo] };
+  let slot: { count?: number } | null;
+  try {
+    slot = (await OtpThrottle.collection.findOneAndUpdate(
+      { _id: key as never, lastSentAt: { $lte: new Date(now.getTime() - cooldownMs) } },
+      [
+        {
+          $set: {
+            lastSentAt: now,
+            windowStart: { $cond: [inWindow, '$windowStart', now] },
+            count: { $cond: [inWindow, { $add: ['$count', 1] }, 1] },
+          },
+        },
+      ],
+      // No matching row: a new one is created; if a row exists but is still cooling down,
+      // creating it again fails with a duplicate key, which means "wait".
+      { upsert: true, returnDocument: 'after' },
+    )) as { count?: number } | null;
+  } catch (err) {
+    if ((err as { code?: number }).code !== 11000) throw err;
+    const row = await OtpThrottle.findById(key);
+    const wait = row ? Math.max(1, Math.ceil((row.lastSentAt.getTime() + cooldownMs - now.getTime()) / 1000)) : 1;
+    throw new AppError(429, `Please wait ${wait} seconds before requesting a new code.`, 'otp_cooldown');
+  }
+  if (!slot || (slot.count ?? 0) > MAX_CODES_PER_HOUR) {
+    throw new AppError(429, 'You have requested too many codes. Please try again in about an hour.', 'otp_limit');
+  }
+  return key;
+}
+
+/**
+ * Sends a new 6-digit code. The earlier code keeps working until the new one has actually been
+ * sent; if sending fails, the cooldown and hourly allowance are given back.
  */
 export async function issueOtp(subject: OtpSubject, target: string, emailPurpose: 'registration' | 'change_email' = 'registration') {
   const settings = await getSettings();
-  const now = Date.now();
-
-  const latest = await Otp.findOne(subject).sort({ createdAt: -1 });
-  if (latest) {
-    const wait = Math.ceil((latest.createdAt.getTime() + settings.otpResendCooldownSeconds * 1000 - now) / 1000);
-    if (wait > 0) throw new AppError(429, `Please wait ${wait} seconds before requesting a new code.`, 'otp_cooldown');
-  }
-  const lastHour = await Otp.countDocuments({ ...subject, createdAt: { $gt: new Date(now - 3600_000) } });
-  if (lastHour >= MAX_CODES_PER_HOUR) {
-    throw new AppError(429, 'You have requested too many codes. Please try again in about an hour.', 'otp_limit');
-  }
-
-  // Only the newest code works.
-  await Otp.updateMany(activeFilter(subject), { $set: { invalidatedAt: new Date() } });
+  const now = new Date();
+  const cooldownMs = settings.otpResendCooldownSeconds * 1000;
+  const key = await reserveSend(subject, now, cooldownMs);
 
   const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-  const expiresAt = new Date(now + settings.otpExpiryMinutes * 60_000);
-  await Otp.create({ ...subject, target, codeHash: hashCode(subject, code), expiresAt, deleteAt: new Date(expiresAt.getTime() + 86_400_000) });
+  const expiresAt = new Date(now.getTime() + settings.otpExpiryMinutes * 60_000);
+  const otp = await Otp.create({ ...subject, target, codeHash: hashCode(subject, code), expiresAt, deleteAt: new Date(expiresAt.getTime() + 86_400_000) });
 
   const sent =
     subject.channel === 'email'
@@ -75,9 +106,19 @@ export async function issueOtp(subject: OtpSubject, target: string, emailPurpose
           event: `${subject.purpose}_otp`,
           text: `${code} is your ${settings.organisationName} verification code. It is valid for ${settings.otpExpiryMinutes} minutes. Do not share it with anyone.`,
         });
+
   if (!sent) {
+    // The undelivered code is cancelled; the previous code (if any) still works.
+    await Otp.updateOne({ _id: otp._id }, { $set: { invalidatedAt: new Date() } });
+    await OtpThrottle.updateOne(
+      { _id: key, lastSentAt: now },
+      { $set: { lastSentAt: new Date(now.getTime() - cooldownMs - 1000) }, $inc: { count: -1 } },
+    );
     throw new AppError(502, `We could not send the code by ${subject.channel === 'email' ? 'email' : 'SMS'}. Please try again shortly.`, 'otp_send_failed');
   }
+
+  // Delivered: from now on only the newest code works.
+  await Otp.updateMany({ ...activeFilter(subject), _id: { $ne: otp._id } }, { $set: { invalidatedAt: new Date() } });
   return otpState(subject);
 }
 
