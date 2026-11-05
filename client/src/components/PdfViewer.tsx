@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-type Pdfjs = typeof import('pdfjs-dist');
+// The "legacy" build also works on older phones (e.g. iPhones before iOS 17.4).
+type Pdfjs = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 let pdfjsPromise: Promise<Pdfjs> | null = null;
 
 /** Loads the PDF library only when a PDF is actually shown, keeping other pages fast. */
 function loadPdfjs(): Promise<Pdfjs> {
   pdfjsPromise ??= Promise.all([
-    import('pdfjs-dist'),
-    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+    import('pdfjs-dist/legacy/build/pdf.mjs'),
+    import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
   ]).then(([pdfjs, worker]) => {
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
     return pdfjs;

@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { config } from '../config';
@@ -12,6 +12,8 @@ import { config } from '../config';
 export interface StorageProvider {
   put(key: string, data: Buffer): Promise<void>;
   open(key: string): Promise<{ stream: Readable; size: number }>;
+  /** Reads a whole file into memory (for files that are processed, e.g. merged into a PDF). */
+  read(key: string): Promise<Buffer>;
 }
 
 class LocalStorage implements StorageProvider {
@@ -27,6 +29,10 @@ class LocalStorage implements StorageProvider {
     const full = this.resolve(key);
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, data, { flag: 'wx' }); // 'wx' refuses to overwrite an existing file
+  }
+
+  async read(key: string) {
+    return readFile(this.resolve(key));
   }
 
   async open(key: string) {

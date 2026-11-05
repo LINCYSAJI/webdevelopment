@@ -1,10 +1,13 @@
 import mongoose, { type ClientSession, type Types } from 'mongoose';
 import type { ReassignInput, Role } from '@fap/shared';
 import { config } from '../config';
+import { nextSequence } from '../lib/counters';
 import { AppError } from '../lib/errors';
 import { AssignmentHistory } from '../models/AssignmentHistory';
+import { GeneratedAgreement } from '../models/GeneratedAgreement';
 import { Registration, type RegistrationDocument } from '../models/Registration';
 import { RegistrationHistory } from '../models/RegistrationHistory';
+import { getSettings } from '../models/Settings';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
 import { sendEmail } from './email.service';
@@ -13,8 +16,11 @@ import {
   applicationAssignedEmail,
   awaitingManagerEmail,
   correctionRequestedEmail,
+  finalApprovalAdminEmail,
+  finalApprovalApplicantEmail,
   rejectedAdminEmail,
 } from './email-templates';
+import { generate as generateAgreement, toSummary } from './generated-agreement.service';
 
 /**
  * Status and assignment changes for the Accounts stage (PRD 6.2, 10.6, 10.7).
@@ -138,6 +144,98 @@ export async function rejectByAccounts(id: string, reason: string, actor: Actor)
     await audit({ action: 'accounts_rejected', userId: actor.user._id, role: 'accounts', targetType: 'registration', targetId: reg._id.toString(), details: { applicationId: reg.applicationId, reason, submissionVersion: reg.currentSubmissionVersion }, ip: actor.ip }, session);
   });
   void notifyRejected(reg, 'Accounts', reason);
+}
+
+// ---------- Manager decisions (PRD M3, 6.2, 9.1, 10.5) ----------
+
+/** "FRN/2026/0001": prefix from Settings, numbered per calendar year (IST), never reused. */
+async function nextReferenceNumber(session: ClientSession) {
+  const settings = await getSettings();
+  const year = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(new Date());
+  const seq = await nextSequence(`agreement_ref_${year}`, session);
+  return `${settings.agreementRefPrefix}/${year}/${String(seq).padStart(4, '0')}`;
+}
+
+async function explainManagerConflict(id: Types.ObjectId): Promise<AppError> {
+  const reg = await Registration.findById(id);
+  if (reg?.status === 'pending_manager' && reg.hasOpenDuplicateFlag) {
+    return new AppError(409, 'Approve is not available while a possible duplicate is waiting for Admin review. You can still reject.', 'duplicate_flag_open');
+  }
+  return new AppError(409, 'This application is no longer waiting for final approval. Please refresh.', 'wrong_status');
+}
+
+/**
+ * Final approval: Pending Manager -> Approved. In one transaction: the status, the reference
+ * number, the history entry, the generated-agreement record and the audit entry. The PDF is then
+ * generated straight away; if that fails the approval still stands (PRD 9.1).
+ */
+export async function approveByManager(id: string, actor: Actor) {
+  const reg = await load(id);
+  const now = new Date();
+  let generatedId: Types.ObjectId | null = null;
+  let referenceNumber = '';
+
+  await mongoose.connection.transaction(async (session) => {
+    referenceNumber = await nextReferenceNumber(session);
+    const updated = await Registration.findOneAndUpdate(
+      { _id: reg._id, status: 'pending_manager', hasOpenDuplicateFlag: { $ne: true } },
+      { $set: { status: 'approved', stageEnteredAt: now, approvedAt: now, agreementReferenceNo: referenceNumber } },
+      { session },
+    );
+    if (!updated) throw await explainManagerConflict(reg._id);
+    await history(session, updated, actor, 'manager_approved', 'approved');
+    const [generated] = await GeneratedAgreement.create(
+      [
+        {
+          registrationId: reg._id,
+          referenceNumber,
+          agreementVersionId: updated.agreementVersionId,
+          submissionVersion: updated.currentSubmissionVersion,
+          approvedAt: now,
+          approvedBy: actor.user._id,
+          status: 'pending',
+        },
+      ],
+      { session },
+    );
+    generatedId = generated._id;
+    await audit({ action: 'manager_approved', userId: actor.user._id, role: 'manager', targetType: 'registration', targetId: reg._id.toString(), details: { applicationId: reg.applicationId, referenceNumber, submissionVersion: updated.currentSubmissionVersion }, ip: actor.ip }, session);
+  });
+
+  const generated = await generateAgreement(generatedId!);
+  void notifyFinalApproval(reg, referenceNumber, generated?.status === 'generated');
+  return { referenceNumber, generation: generated ? toSummary(generated) : null };
+}
+
+/** Manager rejection with a mandatory reason: Pending Manager -> Rejected by Manager. */
+export async function rejectByManager(id: string, reason: string, actor: Actor) {
+  const reg = await load(id);
+  await mongoose.connection.transaction(async (session) => {
+    const updated = await Registration.findOneAndUpdate(
+      { _id: reg._id, status: 'pending_manager' },
+      { $set: { status: 'rejected_by_manager', stageEnteredAt: new Date() } },
+      { session },
+    );
+    if (!updated) throw new AppError(409, 'This application is no longer waiting for final approval. Please refresh.', 'wrong_status');
+    await history(session, updated, actor, 'manager_rejected', 'rejected_by_manager', reason);
+    await audit({ action: 'manager_rejected', userId: actor.user._id, role: 'manager', targetType: 'registration', targetId: reg._id.toString(), details: { applicationId: reg.applicationId, reason, submissionVersion: reg.currentSubmissionVersion }, ip: actor.ip }, session);
+  });
+  void notifyRejected(reg, 'Manager', reason);
+}
+
+/** N8: applicant and Admin. */
+async function notifyFinalApproval(reg: RegistrationDocument, referenceNumber: string, pdfReady: boolean) {
+  try {
+    const appId = reg.applicationId ?? '';
+    const s = reg.signatory!;
+    const jobs = [finalApprovalApplicantEmail(s.name, appId, referenceNumber, portalUrl()).then((m) => sendEmail({ to: s.email, event: 'manager_approved', ...m }))];
+    for (const u of await activeStaff(['admin'])) {
+      jobs.push(finalApprovalAdminEmail(u.name, appId, reg.firmName, referenceNumber, pdfReady, portalUrl()).then((m) => sendEmail({ to: u.email, event: 'manager_approved', ...m })));
+    }
+    await Promise.allSettled(jobs);
+  } catch (err) {
+    console.error('Could not send final approval notifications:', err);
+  }
 }
 
 // ---------- Admin reassignment ----------

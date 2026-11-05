@@ -103,6 +103,11 @@ export interface ReviewListRow {
   assignedTo: UserRef | null;
   hasOpenDuplicateFlag: boolean;
   resubmissionCount: number;
+  /** Manager lists (PRD M2): who approved at the Accounts stage, and when. */
+  accountsApprovedBy?: string | null;
+  accountsApprovedAt?: string | null;
+  /** Approved applications. */
+  agreementReferenceNo?: string | null;
 }
 
 export interface AccountsDashboardView {
@@ -135,6 +140,12 @@ export interface ReviewApplicationView {
   /** Fields and documents that changed since the previous version (resubmissions only). */
   changes: string[] | null;
   agreement: { versionNumber: number; title: string; acceptedAt: string } | null;
+  /** The latest Accounts approval (shown to the Manager, PRD M3). */
+  accountsDecision: { by: string; at: string } | null;
+  /** Set when the Manager approves (PRD 10.5). */
+  agreementReferenceNo: string | null;
+  /** The generated agreement PDF's state (Manager view only). */
+  generatedAgreement: GeneratedAgreementSummary | null;
   /** Includes reviewers' full names (internal view). */
   history: HistoryEntryView[];
   actions: {
@@ -183,3 +194,60 @@ export function describeChange(path: string): string {
   }
   return labels[path] ?? path;
 }
+
+// ---------- Manager (PRD M1–M5) and the generated agreement (PRD §9) ----------
+
+export const MANAGER_LISTS = ['pending', 'approved', 'rejected'] as const;
+export type ManagerList = (typeof MANAGER_LISTS)[number];
+
+export interface ManagerDashboardView {
+  pendingApproval: number;
+  overdue: number;
+  approvedThisMonth: number;
+  rejectedThisMonth: number;
+  agreementsNotYetEmailed: number;
+  oldest: ReviewListRow[];
+}
+
+export const GENERATION_STATUSES = ['pending', 'generated', 'failed'] as const;
+export type GenerationStatus = (typeof GENERATION_STATUSES)[number];
+
+export interface GeneratedAgreementSummary {
+  id: string;
+  referenceNumber: string;
+  status: GenerationStatus;
+  generatedAt: string | null;
+  error: string | null;
+  pageCount: number | null;
+}
+
+export interface GeneratedAgreementRow extends GeneratedAgreementSummary {
+  registrationId: string;
+  applicationId: string;
+  firmName: string;
+  recipient: string;
+  approvedAt: string;
+  lastEmailedAt: string | null;
+  lastEmailStatus: 'sent' | 'failed' | null;
+  timesSent: number;
+}
+
+export interface AgreementEmailLogView {
+  at: string;
+  recipient: string;
+  subject: string;
+  status: 'sent' | 'failed';
+  sentBy: string;
+  error: string | null;
+}
+
+/** The "Send to Franchisee" dialog (PRD M5). The recipient is always the registered email. */
+export const sendAgreementSchema = z.object({
+  subject: z.string().trim().min(3, 'Enter a subject').max(200, 'The subject must be at most 200 characters'),
+  message: z.string().trim().min(1, 'Enter a message').max(5000, 'The message must be at most 5000 characters'),
+});
+export type SendAgreementInput = z.infer<typeof sendAgreementSchema>;
+
+/** The exact footer required on every page of the generated agreement (PRD D9, 9.3). */
+export const AGREEMENT_PDF_FOOTER =
+  'This is a computer-generated digital agreement and does not require any physical or digital signature.';

@@ -186,3 +186,67 @@ export function resubmittedStaffEmail(name: string, applicationId: string, firmN
     { label: 'Open the portal', url },
   );
 }
+
+// ---------- Manager decision and agreement emails (PRD §11, N8, N11, N12) ----------
+
+/** N8 to the applicant. */
+export function finalApprovalApplicantEmail(name: string, applicationId: string, referenceNumber: string, url: string) {
+  return layout(
+    `Application approved: ${applicationId}`,
+    [
+      `Hello ${name},`,
+      `Congratulations! Your franchise application ${applicationId} has received final approval.`,
+      `Your agreement has been generated with reference number ${referenceNumber}. Our Manager will email it to you shortly.`,
+    ],
+    { label: 'View my application', url },
+  );
+}
+
+/** N8 to Admin. */
+export function finalApprovalAdminEmail(name: string, applicationId: string, firmName: string, referenceNumber: string, pdfReady: boolean, url: string) {
+  return layout(
+    `Final approval${pdfReady ? ' + PDF generated' : ''}: ${applicationId}`,
+    [
+      `Hello ${name},`,
+      `Application ${applicationId} (${firmName}) received final approval. Agreement reference: ${referenceNumber}.`,
+      pdfReady ? 'The agreement PDF has been generated.' : 'The agreement PDF could not be generated yet; the Manager can retry it from Generated Agreements.',
+    ],
+    { label: 'Open the portal', url },
+  );
+}
+
+/** N12 to Managers and Admin. */
+export function pdfGenerationFailedEmail(name: string, applicationId: string, referenceNumber: string, url: string) {
+  return layout(
+    `Agreement PDF generation failed: ${referenceNumber}`,
+    [
+      `Hello ${name},`,
+      `The approval of ${applicationId} stands, but its agreement PDF (${referenceNumber}) could not be generated.`,
+      'A Manager can use "Retry Generation" on the Generated Agreements screen.',
+    ],
+    { label: 'Open Generated Agreements', url },
+  );
+}
+
+/** Default wording for the "Send to Franchisee" dialog (N11); the Manager can edit it before sending. */
+export function defaultAgreementEmailText(name: string, referenceNumber: string, organisationName: string) {
+  return {
+    subject: `Your Franchise Agreement – ${referenceNumber}`,
+    message: [
+      `Dear ${name},`,
+      '',
+      `Please find attached your franchise agreement (reference ${referenceNumber}) with ${organisationName}.`,
+      'This is a computer-generated digital agreement and does not require any physical or digital signature.',
+      '',
+      'Please keep it for your records.',
+      '',
+      'Regards,',
+      organisationName,
+    ].join('\n'),
+  };
+}
+
+/** N11: the Manager's message, in the branded layout, with the PDF attached. */
+export function agreementEmail(subject: string, message: string) {
+  return layout(subject, message.split(/\n{2,}/).map((p) => p.replace(/\n/g, ' ').trim()).filter(Boolean));
+}

@@ -9,7 +9,7 @@
     "migrate": "tsx src/scripts/migrate.ts",
     "seed:dev": "tsx src/scripts/seed-dev.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts"
+    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts"
   },
   "dependencies": {
     "@fap/shared": "*",
@@ -19,6 +19,7 @@
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
+    "htmlparser2": "^10.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.1",
     "pdf-lib": "^1.17.1",

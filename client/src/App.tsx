@@ -21,6 +21,8 @@ import { ApplicationReviewPage } from './pages/accounts/ApplicationReviewPage';
 import { PendingApplicationsPage } from './pages/accounts/PendingApplicationsPage';
 import { ReviewedApplicationsPage } from './pages/accounts/ReviewedApplicationsPage';
 import { MyApplicationPage } from './pages/franchise/MyApplicationPage';
+import { GeneratedAgreementsPage } from './pages/manager/GeneratedAgreementsPage';
+import { ManagerListPage } from './pages/manager/ManagerListPage';
 import { ResubmitPage } from './pages/franchise/ResubmitPage';
 import { ProfilePage } from './pages/franchise/ProfilePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
@@ -60,7 +62,13 @@ export function App() {
 
         <Route path="accounts/pending" element={only('accounts', <PendingApplicationsPage />)} />
         <Route path="accounts/reviewed" element={only('accounts', <ReviewedApplicationsPage />)} />
-        <Route path="accounts/applications/:id" element={only('accounts', <ApplicationReviewPage />)} />
+        <Route path="accounts/applications/:id" element={only('accounts', <ApplicationReviewPage key="accounts" reviewer="accounts" />)} />
+
+        <Route path="manager/pending" element={only('manager', <ManagerListPage key="pending" list="pending" />)} />
+        <Route path="manager/approved" element={only('manager', <ManagerListPage key="approved" list="approved" />)} />
+        <Route path="manager/rejected" element={only('manager', <ManagerListPage key="rejected" list="rejected" />)} />
+        <Route path="manager/applications/:id" element={only('manager', <ApplicationReviewPage key="manager" reviewer="manager" />)} />
+        <Route path="manager/agreements" element={only('manager', <GeneratedAgreementsPage />)} />
 
         <Route path="admin/agreement-content" element={only('admin', <AgreementListPage />)} />
         <Route path="admin/agreement-content/:id" element={only('admin', <AgreementEditorPage />)} />

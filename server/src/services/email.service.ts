@@ -9,6 +9,7 @@ export interface EmailMessage {
   text: string;
   /** Notification event code, e.g. "user_invite" (PRD §11). */
   event: string;
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 }
 
 interface EmailProvider {
@@ -20,7 +21,13 @@ interface EmailProvider {
 const devOutboxProvider: EmailProvider = {
   name: 'dev_outbox',
   async send(message) {
-    await mongoose.connection.db!.collection('dev_outbox').insertOne({ ...message, at: new Date() });
+    // Attachments are listed (name and size) but not stored in the test mailbox.
+    const { attachments, ...rest } = message;
+    await mongoose.connection.db!.collection('dev_outbox').insertOne({
+      ...rest,
+      attachments: (attachments ?? []).map((a) => ({ filename: a.filename, size: a.content.length, contentType: a.contentType })),
+      at: new Date(),
+    });
     console.log(`[test mailbox] to=${message.to} subject="${message.subject}"`);
   },
 };
@@ -40,6 +47,11 @@ const MAX_ATTEMPTS = 3;
  * the business action that triggered it.
  */
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
+  return (await sendEmailWithResult(message)).ok;
+}
+
+/** Like sendEmail, but also returns the provider's error message when sending failed. */
+export async function sendEmailWithResult(message: EmailMessage): Promise<{ ok: boolean; error: string | null }> {
   const provider = getProvider();
   let lastError: unknown;
 
@@ -55,7 +67,7 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
         status: 'sent',
         attempts: attempt,
       });
-      return true;
+      return { ok: true, error: null };
     } catch (err) {
       lastError = err;
       if (attempt < MAX_ATTEMPTS) await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -73,5 +85,5 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
     attempts: MAX_ATTEMPTS,
     error: lastError instanceof Error ? lastError.message : String(lastError),
   });
-  return false;
+  return { ok: false, error: lastError instanceof Error ? lastError.message : String(lastError) };
 }

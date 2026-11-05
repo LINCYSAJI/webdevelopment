@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { NAVIGATION } from '../navigation';
 import { AccountsDashboardPage } from './accounts/AccountsDashboardPage';
 import { FranchiseDashboardPage } from './franchise/FranchiseDashboardPage';
+import { ManagerDashboardPage } from './manager/ManagerDashboardPage';
 
 const ROLE_INTRO = {
   admin: 'You have full oversight of the portal: registrations, approvals, agreement content, users and settings.',
@@ -17,6 +18,7 @@ export function DashboardPage() {
   if (!user) return null;
   if (user.role === 'franchise_user') return <FranchiseDashboardPage />;
   if (user.role === 'accounts') return <AccountsDashboardPage />;
+  if (user.role === 'manager') return <ManagerDashboardPage />;
   const screens = NAVIGATION[user.role].filter((i) => i.path !== '/app');
 
   return (

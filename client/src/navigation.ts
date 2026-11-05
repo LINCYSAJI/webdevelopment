@@ -21,10 +21,10 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
   ],
   manager: [
     { label: 'Dashboard', path: '/app' },
-    { label: 'Pending Approvals', path: '/app/manager/pending', step: 6 },
-    { label: 'Approved', path: '/app/manager/approved', step: 6 },
-    { label: 'Rejected', path: '/app/manager/rejected', step: 6 },
-    { label: 'Generated Agreements', path: '/app/manager/agreements', step: 6 },
+    { label: 'Pending Approvals', path: '/app/manager/pending' },
+    { label: 'Approved', path: '/app/manager/approved' },
+    { label: 'Rejected', path: '/app/manager/rejected' },
+    { label: 'Generated Agreements', path: '/app/manager/agreements' },
   ],
   admin: [
     { label: 'Dashboard', path: '/app' },

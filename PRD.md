@@ -849,6 +849,10 @@ These are defaults the team will follow unless the product owner says otherwise.
 | A18 | **Overdue** means waiting **more than** the "first reminder after" number of business days in Settings (default 2), counted from when the application entered its current stage. Weekends and Admin holidays don't count |
 | A19 | **Edit & Resubmit:** unchanged documents are kept automatically; only replaced files are uploaded again. The duplicate check runs again on every resubmission, but only **new** email/mobile matches raise a warning and flag (matches already reviewed by Admin are not raised again) |
 | A20 | Accounts users see the full Pending Accounts queue (others' applications read-only) plus everything they reviewed before. The Admin "Reassign" button on the registrations screen arrives with step 7; the reassign function already works and is used when deactivating an Accounts user |
+| A21 | The Manager also cannot approve while a possible-duplicate flag is open (this can happen after a resubmission); Reject is still allowed. This matches the Accounts rule (Q4) |
+| A22 | The PDF uses the standard built-in fonts. Ordinary English letters, numbers and punctuation print normally; the rupee sign prints as "Rs." and characters from other scripts print as "?". A Unicode font can be added later if names or text in other scripts are needed |
+| A23 | For an uploaded (PDF) agreement, each uploaded page is placed unchanged on an A4 page, scaled down slightly if needed, so the mandatory footer never covers its content |
+| A24 | Agreement emails sent from the portal are logged with recipient, subject, sender, time and status. In development, the test mailbox lists the attachment's name and size rather than storing the file |
 
 ### 18.2 Open questions for the product owner
 

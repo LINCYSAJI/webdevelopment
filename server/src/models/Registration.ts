@@ -53,6 +53,9 @@ const registrationSchema = new Schema(
       mobileVerifiedAt: { type: Date },
     },
     submittedAt: { type: Date, required: true },
+    // Set by the Manager's final approval (PRD 10.5): FRN/YYYY/NNNN, unique and never reused.
+    agreementReferenceNo: { type: String },
+    approvedAt: { type: Date },
     // Latest submit or resubmit (PRD A2 "Submitted / Resubmitted On").
     lastSubmittedAt: { type: Date },
     // When the application entered its current waiting stage; business-day reminders count from here (PRD 10.8).

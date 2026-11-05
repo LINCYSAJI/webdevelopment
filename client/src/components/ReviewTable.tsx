@@ -10,10 +10,29 @@ interface ReviewTableProps {
   /** Extra per-row action (e.g. Pick Up). */
   action?: (row: ReviewListRow) => ReactNode;
   showStatus?: boolean;
+  /** Manager lists show the Accounts approval (and reference number) instead of the assignee. */
+  variant?: 'accounts' | 'manager';
 }
 
 /** Applications list (PRD A2): a table on wide screens, cards on phones. */
-export function ReviewTable({ rows, linkTo, action, showStatus }: ReviewTableProps) {
+export function ReviewTable({ rows, linkTo, action, showStatus, variant = 'accounts' }: ReviewTableProps) {
+  const manager = variant === 'manager';
+  const responsible = (r: ReviewListRow) =>
+    manager ? (
+      r.agreementReferenceNo ? (
+        <span className="font-medium text-slate-900">{r.agreementReferenceNo}</span>
+      ) : r.accountsApprovedBy ? (
+        <span>
+          {r.accountsApprovedBy}
+          {r.accountsApprovedAt && <span className="block text-xs text-slate-500">{formatDateIST(r.accountsApprovedAt)}</span>}
+        </span>
+      ) : (
+        <span className="text-slate-500">—</span>
+      )
+    ) : (
+      r.assignedTo?.name ?? <span className="text-slate-500">Unassigned</span>
+    );
+  const responsibleLabel = manager ? (rows.some((r) => r.agreementReferenceNo) ? 'Reference / Accounts approval' : 'Accounts approved') : 'Assigned To';
   const waiting = (r: ReviewListRow) => (
     <span className={r.overdue ? 'font-semibold text-red-700' : ''}>
       {r.businessDaysWaiting} day{r.businessDaysWaiting === 1 ? '' : 's'}
@@ -40,7 +59,7 @@ export function ReviewTable({ rows, linkTo, action, showStatus }: ReviewTablePro
               <th className="px-3 py-2">Signatory</th>
               <th className="px-3 py-2">Submitted</th>
               <th className="px-3 py-2">Waiting</th>
-              <th className="px-3 py-2">Assigned To</th>
+              <th className="px-3 py-2">{responsibleLabel}</th>
               <th className="px-3 py-2">Flags</th>
               {action && <th className="px-3 py-2" />}
             </tr>
@@ -61,8 +80,8 @@ export function ReviewTable({ rows, linkTo, action, showStatus }: ReviewTablePro
                 <td className="px-3 py-2 font-mono text-xs">{r.panMasked}</td>
                 <td className="px-3 py-2">{r.signatoryName}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatDateIST(r.submittedAt)}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{waiting(r)}</td>
-                <td className="px-3 py-2">{r.assignedTo?.name ?? <span className="text-slate-500">Unassigned</span>}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{r.status === 'pending_accounts' || r.status === 'pending_manager' ? waiting(r) : '—'}</td>
+                <td className="px-3 py-2">{responsible(r)}</td>
                 <td className="px-3 py-2">{flags(r)}</td>
                 {action && <td className="px-3 py-2 text-right">{action(r)}</td>}
               </tr>
@@ -90,7 +109,9 @@ export function ReviewTable({ rows, linkTo, action, showStatus }: ReviewTablePro
             <div className="text-xs text-slate-600">
               {r.signatoryName} · submitted {formatDateIST(r.submittedAt)} · waiting {waiting(r)}
             </div>
-            <div className="text-xs text-slate-600">Assigned to: {r.assignedTo?.name ?? 'Unassigned'}</div>
+            <div className="text-xs text-slate-600">
+              {responsibleLabel}: {responsible(r)}
+            </div>
             {showStatus && <div className="text-xs text-slate-600">Status: {STATUS_LABELS[r.status]}</div>}
             {flags(r)}
           </li>
