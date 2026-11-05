@@ -5,7 +5,8 @@
   "workspaces": [
     "shared",
     "server",
-    "client"
+    "client",
+    "e2e"
   ],
   "scripts": {
     "dev": "concurrently -k -n db,server,client -c magenta,blue,green \"npm run db -w server\" \"npm run dev -w server\" \"npm run dev -w client\"",
@@ -13,7 +14,8 @@
     "migrate": "npm run migrate -w server",
     "seed:dev": "npm run seed:dev -w server",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test -w server"
+    "test": "npm run test -w server",
+    "walkthrough": "npm run walkthrough -w e2e"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

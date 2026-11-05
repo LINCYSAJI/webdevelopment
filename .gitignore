@@ -10,3 +10,7 @@ server/storage/
 
 *.log
 .DS_Store
+
+# Recorded browser walkthrough (npm run walkthrough): large video and run output
+/portal-walkthrough.mp4
+e2e/results/

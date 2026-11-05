@@ -30,7 +30,7 @@ The product owner chose **MongoDB instead of Supabase** (PRD D14), so this is a 
 
 ## Commands
 
-Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`):
+Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`, `e2e/`):
 
 | Command | What it does |
 |---|---|
@@ -41,6 +41,7 @@ Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`):
 | `npm run seed:dev` | Create dev logins `admin` / `accounts` / `manager` (`@portal.local`), password `Portal@2026`. Development only |
 | `npm run typecheck` | TypeScript check across all workspaces |
 | `npm test` | End-to-end API tests (7 suites) on a throwaway in-memory database (never touches dev data) |
+| `npm run walkthrough` | With `npm run dev` running: drives a real browser through every main flow at a human pace and records `portal-walkthrough.mp4` (cursor, highlights, captions) plus `e2e/results/report.json` (steps, browser errors, failed requests). Creates one test application in the **development** database. First time only: `npx playwright install chromium` in `e2e/` |
 
 - The local database is downloaded and run by `server/src/scripts/local-db.ts` (via mongodb-memory-server's binary). It is for development only; production uses MongoDB Atlas.
 - Server settings live in `server/.env` (copy from `server/.env.example`).
