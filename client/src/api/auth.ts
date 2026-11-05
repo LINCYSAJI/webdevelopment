@@ -8,12 +8,14 @@ export const logout = () => api<{ ok: true }>('/auth/logout', { method: 'POST' }
 
 /** Returns the signed-in user, or null if nobody is signed in. */
 export async function getCurrentUser(): Promise<PublicUser | null> {
+  type Session = { user: PublicUser | null; canRefresh?: boolean };
   try {
-    return (await api<{ user: PublicUser }>('/auth/me')).user;
+    const session = await api<Session>('/auth/session');
+    if (session.user) return session.user;
+    // Only try to renew when a stored session exists, so logged-out visitors see no failed requests.
+    if (session.canRefresh && (await refreshSession())) return (await api<Session>('/auth/session')).user;
+    return null;
   } catch {
-    if (await refreshSession()) {
-      return (await api<{ user: PublicUser }>('/auth/me')).user;
-    }
     return null;
   }
 }

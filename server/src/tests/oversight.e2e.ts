@@ -124,6 +124,12 @@ const ashaB = await login('asha');
 const miraB = await login('mira');
 const adminB = await login('admin');
 
+// ---------- Session check without errors ----------
+let s0 = await anon.call('GET', '/auth/session');
+ok('logged-out session check answers 200 with no user (no failed request)', s0.status === 200 && s0.body.user === null && s0.body.canRefresh === false, s0.body);
+s0 = await adminB.call('GET', '/auth/session');
+ok('logged-in session check returns the user', s0.status === 200 && s0.body.user?.role === 'admin', s0.body);
+
 // ---------- Permissions ----------
 for (const url of ['/admin/dashboard', '/admin/registrations', '/admin/registrations/export', `/admin/registrations/${a.id}`, '/admin/duplicates', '/admin/tracking', '/admin/approved', '/admin/rejected', '/admin/generated-agreements']) {
   const [x, y, z, w] = await Promise.all([anon.call('GET', url), ashaB.call('GET', url), miraB.call('GET', url), a.browser.call('GET', url)]);

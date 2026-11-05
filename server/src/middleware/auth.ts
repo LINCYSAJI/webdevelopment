@@ -17,22 +17,24 @@ declare global {
   }
 }
 
-/** Rejects the request unless it carries a valid login. The role is always loaded from the database. */
-export const requireAuth = asyncHandler(async (req, _res, next) => {
+/** The login carried by this request, or why there is none. The role is always loaded from the database. */
+export async function currentLogin(req: Request): Promise<{ user: UserDocument; sessionId: string } | { error: string }> {
   const token: string | undefined = req.cookies?.[ACCESS_COOKIE];
   const claims = token ? verifyAccessToken(token) : null;
-  if (!claims) throw new AppError(401, 'Please log in to continue.', 'unauthenticated');
-
-  if (!(await isSessionActive(claims.sessionId))) {
-    throw new AppError(401, 'Your session has ended. Please log in again.', 'unauthenticated');
-  }
-
+  if (!claims) return { error: 'Please log in to continue.' };
+  if (!(await isSessionActive(claims.sessionId))) return { error: 'Your session has ended. Please log in again.' };
   const user = await User.findById(claims.userId);
-  if (!user || !user.isActive) throw new AppError(401, 'Please log in to continue.', 'unauthenticated');
-
-  req.user = user;
-  req.sessionId = claims.sessionId;
+  if (!user || !user.isActive) return { error: 'Please log in to continue.' };
   await touchSession(claims.sessionId);
+  return { user, sessionId: claims.sessionId };
+}
+
+/** Rejects the request unless it carries a valid login. */
+export const requireAuth = asyncHandler(async (req, _res, next) => {
+  const login = await currentLogin(req);
+  if ('error' in login) throw new AppError(401, login.error, 'unauthenticated');
+  req.user = login.user;
+  req.sessionId = login.sessionId;
   next();
 });
 

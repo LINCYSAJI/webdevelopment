@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { changePasswordSchema, forgotPasswordSchema, loginSchema, setPasswordSchema } from '@fap/shared';
 import { clearAuthCookies, setAuthCookies } from '../lib/auth-cookies';
 import { AppError, asyncHandler } from '../lib/errors';
-import { REFRESH_COOKIE, requireAuth } from '../middleware/auth';
+import { REFRESH_COOKIE, currentLogin, requireAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { toPublicUser } from '../models/User';
 import * as auth from '../services/auth.service';
@@ -55,6 +55,19 @@ authRouter.post(
     await auth.logout(req.cookies?.[REFRESH_COOKIE]);
     clearAuthCookies(res);
     res.json({ ok: true });
+  }),
+);
+
+/**
+ * Who is logged in, answered without an error: lets a page load for a logged-out visitor
+ * without a failed request. `canRefresh` says a stored session may be renewable.
+ */
+authRouter.get(
+  '/session',
+  asyncHandler(async (req, res) => {
+    const login = await currentLogin(req);
+    if ('user' in login) return res.json({ user: toPublicUser(login.user) });
+    res.json({ user: null, canRefresh: !!req.cookies?.[REFRESH_COOKIE] });
   }),
 );
 
