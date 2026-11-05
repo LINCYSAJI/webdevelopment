@@ -29,6 +29,11 @@ import { SetPasswordPage } from './pages/SetPasswordPage';
 import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
 import { TermsPage } from './pages/legal/TermsPage';
 import { DataRequestsPage } from './pages/admin/DataRequestsPage';
+import { DuplicateComparePage } from './pages/admin/DuplicateComparePage';
+import { DuplicatesPage } from './pages/admin/DuplicatesPage';
+import { RegistrationsPage } from './pages/admin/RegistrationsPage';
+import { RejectedPage } from './pages/admin/RejectedPage';
+import { TrackingPage } from './pages/admin/TrackingPage';
 
 // Every screen not yet built, with the role allowed to open it.
 const plannedScreens = ROLES.flatMap((role) =>
@@ -75,6 +80,14 @@ export function App() {
         <Route path="manager/applications/:id" element={only('manager', <ApplicationReviewPage key="manager" reviewer="manager" />)} />
         <Route path="manager/agreements" element={only('manager', <GeneratedAgreementsPage />)} />
 
+        <Route path="admin/registrations" element={only('admin', <RegistrationsPage key="all" list="all" />)} />
+        <Route path="admin/registrations/:id" element={only('admin', <ApplicationReviewPage key="admin" reviewer="admin" />)} />
+        <Route path="admin/duplicates" element={only('admin', <DuplicatesPage />)} />
+        <Route path="admin/duplicates/:id" element={only('admin', <DuplicateComparePage />)} />
+        <Route path="admin/tracking" element={only('admin', <TrackingPage />)} />
+        <Route path="admin/approved" element={only('admin', <RegistrationsPage key="approved" list="approved" />)} />
+        <Route path="admin/rejected" element={only('admin', <RejectedPage />)} />
+        <Route path="admin/agreements" element={only('admin', <GeneratedAgreementsPage key="admin" viewer="admin" />)} />
         <Route path="admin/agreement-content" element={only('admin', <AgreementListPage />)} />
         <Route path="admin/agreement-content/:id" element={only('admin', <AgreementEditorPage />)} />
         <Route path="admin/accounts-users" element={only('admin', <UsersPage key="accounts" role="accounts" />)} />

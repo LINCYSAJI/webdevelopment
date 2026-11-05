@@ -10,15 +10,25 @@ interface ReviewTableProps {
   /** Extra per-row action (e.g. Pick Up). */
   action?: (row: ReviewListRow) => ReactNode;
   showStatus?: boolean;
-  /** Manager lists show the Accounts approval (and reference number) instead of the assignee. */
-  variant?: 'accounts' | 'manager';
+  /** Manager lists show the Accounts approval (and reference number) instead of the assignee; Admin lists show both. */
+  variant?: 'accounts' | 'manager' | 'admin';
 }
 
 /** Applications list (PRD A2): a table on wide screens, cards on phones. */
 export function ReviewTable({ rows, linkTo, action, showStatus, variant = 'accounts' }: ReviewTableProps) {
   const manager = variant === 'manager';
+  const admin = variant === 'admin';
+  if (admin) showStatus = true;
   const responsible = (r: ReviewListRow) =>
-    manager ? (
+    admin ? (
+      r.agreementReferenceNo ? (
+        <span className="font-medium text-slate-900">{r.agreementReferenceNo}</span>
+      ) : r.status === 'pending_accounts' ? (
+        r.assignedTo?.name ?? <span className="text-slate-500">Unassigned</span>
+      ) : (
+        <span className="text-slate-500">—</span>
+      )
+    ) : manager ? (
       r.agreementReferenceNo ? (
         <span className="font-medium text-slate-900">{r.agreementReferenceNo}</span>
       ) : r.accountsApprovedBy ? (
@@ -32,7 +42,7 @@ export function ReviewTable({ rows, linkTo, action, showStatus, variant = 'accou
     ) : (
       r.assignedTo?.name ?? <span className="text-slate-500">Unassigned</span>
     );
-  const responsibleLabel = manager ? (rows.some((r) => r.agreementReferenceNo) ? 'Reference / Accounts approval' : 'Accounts approved') : 'Assigned To';
+  const responsibleLabel = admin ? 'Assigned / Reference' : manager ? (rows.some((r) => r.agreementReferenceNo) ? 'Reference / Accounts approval' : 'Accounts approved') : 'Assigned To';
   const waiting = (r: ReviewListRow) => (
     <span className={r.overdue ? 'font-semibold text-red-700' : ''}>
       {r.businessDaysWaiting} day{r.businessDaysWaiting === 1 ? '' : 's'}
@@ -69,7 +79,7 @@ export function ReviewTable({ rows, linkTo, action, showStatus, variant = 'accou
               <tr key={r.id} className="align-top">
                 <td className="px-3 py-2">
                   <Link to={linkTo(r)} className="font-medium text-brand hover:underline">
-                    {r.applicationId}
+                    {r.applicationId || 'Not yet verified'}
                   </Link>
                   {showStatus && <div className="mt-1 text-xs text-slate-500">{STATUS_LABELS[r.status]}</div>}
                 </td>

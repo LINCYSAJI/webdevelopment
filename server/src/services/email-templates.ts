@@ -295,3 +295,19 @@ export function dataErasedEmail(name: string) {
     'This is the last email you will receive from the portal.',
   ]);
 }
+
+// ---------- Duplicate Review (PRD AD3) ----------
+
+/** To the reviewer(s): Admin confirmed a duplicate, so the application should be rejected with this note. */
+export function duplicateConfirmedEmail(name: string, applicationId: string, firmName: string, note: string, url: string) {
+  return layout(
+    `Duplicate confirmed: please reject ${applicationId}`,
+    [
+      `Hello ${name},`,
+      `Admin has reviewed application ${applicationId} (${firmName}) and confirmed it is a duplicate of another registration.`,
+      `Please reject the application, using this note as the reason: ${note}`,
+      'Approve stays unavailable for this application.',
+    ],
+    { label: 'Open the application', url },
+  );
+}

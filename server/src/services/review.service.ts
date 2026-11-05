@@ -35,11 +35,11 @@ const ACCOUNTS_DECISIONS = ['accounts_approved', 'accounts_rejected'] as const;
 const MANAGER_DECISIONS = ['manager_approved', 'manager_rejected'] as const;
 export const MANAGER_STATUSES: ApplicationStatus[] = ['pending_manager', 'approved', 'rejected_by_manager'];
 
-async function holidaySet() {
+export async function holidaySet() {
   return new Set((await Holiday.find({}, { date: 1 })).map((h) => h.date));
 }
 
-const waitingSince = (reg: RegistrationDocument) => reg.stageEnteredAt ?? reg.lastSubmittedAt ?? reg.submittedAt;
+export const waitingSince = (reg: RegistrationDocument) => reg.stageEnteredAt ?? reg.lastSubmittedAt ?? reg.submittedAt;
 
 /** List rows, including (for Manager lists) who approved at the Accounts stage and when. */
 export async function toRows(regs: RegistrationDocument[], withAccountsDecision = false): Promise<ReviewListRow[]> {
@@ -86,14 +86,14 @@ export async function toRows(regs: RegistrationDocument[], withAccountsDecision 
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** "2026-11-04" (an IST date) -> the matching instant, at the start or end of that day. */
-const istBoundary = (key: string, end: boolean) => new Date(`${key}T${end ? '23:59:59.999' : '00:00:00.000'}+05:30`);
+export const istBoundary = (key: string, end: boolean) => new Date(`${key}T${end ? '23:59:59.999' : '00:00:00.000'}+05:30`);
 export const monthStartIST = () => istBoundary(`${istDateKey(new Date()).slice(0, 7)}-01`, false);
 
 /** Shared search, filters, oldest-first sort and paging for every review list. */
 export async function listApplications(
   base: FilterQuery<RegistrationDocument>,
   rawQuery: ReviewListQuery,
-  opts: { withAccountsDecision?: boolean; newestFirst?: boolean } = {},
+  opts: { withAccountsDecision?: boolean; newestFirst?: boolean; sort?: Record<string, 1 | -1>; all?: boolean } = {},
 ): Promise<Paginated<ReviewListRow>> {
   const q = reviewListQuerySchema.parse(rawQuery);
   const filter: FilterQuery<RegistrationDocument> = { ...base };
@@ -107,10 +107,12 @@ export async function listApplications(
     const rx = new RegExp(escapeRegex(q.search), 'i');
     filter.$or = ['applicationId', 'firmName', 'pan', 'gst', 'signatory.name', 'signatory.email', 'signatory.mobile', 'agreementReferenceNo'].map((f) => ({ [f]: rx }));
   }
-  const sort = opts.newestFirst ? { stageEnteredAt: -1 as const, _id: -1 as const } : { stageEnteredAt: 1 as const, _id: 1 as const };
+  const sort = opts.sort ?? (opts.newestFirst ? { stageEnteredAt: -1 as const, _id: -1 as const } : { stageEnteredAt: 1 as const, _id: 1 as const });
   // Volumes are small (tens per month), so business-day filtering happens after loading.
   let rows = await toRows(await Registration.find(filter).sort(sort), opts.withAccountsDecision);
   if (q.overdue) rows = rows.filter((r) => r.overdue);
+  // `all` is for exports: every matching row, no paging.
+  if (opts.all) return { items: rows, page: 1, pageSize: rows.length, total: rows.length };
   const start = (q.page - 1) * q.pageSize;
   return { items: rows.slice(start, start + q.pageSize), page: q.page, pageSize: q.pageSize, total: rows.length };
 }
@@ -131,10 +133,15 @@ export async function buildReviewView(
     SubmissionVersion.find({ registrationId: reg._id }, { version: 1 }).sort({ version: 1 }),
     RegistrationHistory.find({ registrationId: reg._id }).sort({ at: 1 }),
     AgreementAcceptance.findOne({ registrationId: reg._id }).sort({ acceptedAt: -1 }),
-    DuplicateFlag.find({ registrationId: reg._id, status: 'open' }),
+    DuplicateFlag.find({ registrationId: reg._id, status: { $in: ['open', 'confirmed'] } }).sort({ resolvedAt: 1 }),
     opts.forManager ? GeneratedAgreement.findOne({ registrationId: reg._id }) : Promise.resolve(null),
   ]);
   const history = await toHistoryView(historyRows, 'internal');
+  const openFlags = flags.filter((f) => f.status === 'open');
+  // A confirmation counts only until the applicant resubmits (then the duplicate check runs again).
+  const confirmedFlag = reg.hasOpenDuplicateFlag
+    ? flags.filter((f) => f.status === 'confirmed' && f.resolvedAt && f.resolvedAt >= (reg.lastSubmittedAt ?? reg.submittedAt)).at(-1)
+    : undefined;
   const lastAccountsApproval = [...history].reverse().find((h) => h.event === 'accounts_approved');
 
   return {
@@ -148,7 +155,8 @@ export async function buildReviewView(
     resubmissionCount: row.resubmissionCount,
     duplicate: {
       open: !!reg.hasOpenDuplicateFlag,
-      matches: flags.flatMap((f) => f.matches.map((m) => ({ field: m.field, value: m.value, matchedApplicationId: m.matchedApplicationId ?? null }))),
+      confirmed: confirmedFlag ? { note: confirmedFlag.note ?? '', at: confirmedFlag.resolvedAt!.toISOString() } : null,
+      matches: (openFlags.length ? openFlags : confirmedFlag ? [confirmedFlag] : []).flatMap((f) => f.matches.map((m) => ({ field: m.field, value: m.value, matchedApplicationId: m.matchedApplicationId ?? null }))),
     },
     submission: await toSubmissionView(reg._id, shownVersion),
     versions: versions.map((v) => v.version),
@@ -291,16 +299,21 @@ export async function managerDashboard(): Promise<ManagerDashboardView> {
   const [approved, rejected] = await Promise.all(
     MANAGER_DECISIONS.map((event) => RegistrationHistory.countDocuments({ event, at: { $gte: since } })),
   );
-  const generated = await GeneratedAgreement.find({ status: 'generated' }, { _id: 1 });
-  const emailed = new Set(
-    (await AgreementEmailLog.distinct('generatedAgreementId', { status: 'sent', generatedAgreementId: { $in: generated.map((g) => g._id) } })).map(String),
-  );
   return {
     pendingApproval: pending.length,
     overdue: pending.filter((r) => r.overdue).length,
     approvedThisMonth: approved,
     rejectedThisMonth: rejected,
-    agreementsNotYetEmailed: generated.filter((g) => !emailed.has(g._id.toString())).length,
+    agreementsNotYetEmailed: (await agreementCounts()).notYetEmailed,
     oldest: pending.slice(0, 5),
   };
+}
+
+/** Generated agreement PDFs, and how many have never been emailed successfully (M1, AD1). */
+export async function agreementCounts() {
+  const generated = await GeneratedAgreement.find({ status: 'generated' }, { _id: 1 });
+  const emailed = new Set(
+    (await AgreementEmailLog.distinct('generatedAgreementId', { status: 'sent', generatedAgreementId: { $in: generated.map((g) => g._id) } })).map(String),
+  );
+  return { generated: generated.length, notYetEmailed: generated.filter((g) => !emailed.has(g._id.toString())).length };
 }

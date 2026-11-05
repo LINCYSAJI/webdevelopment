@@ -134,7 +134,8 @@ export interface ReviewApplicationView {
   businessDaysWaiting: number;
   overdue: boolean;
   resubmissionCount: number;
-  duplicate: { open: boolean; matches: DuplicateMatchView[] };
+  /** `confirmed` is set when Admin confirmed it is a duplicate: approval stays blocked and the reviewer should reject. */
+  duplicate: { open: boolean; confirmed: { note: string; at: string } | null; matches: DuplicateMatchView[] };
   submission: SubmissionView;
   versions: number[];
   /** Fields and documents that changed since the previous version (resubmissions only). */
@@ -154,6 +155,8 @@ export interface ReviewApplicationView {
     canReject: boolean;
     /** Why Approve is disabled, e.g. an open duplicate flag. */
     approveBlockedReason: string | null;
+    /** Admin only: the application can be reassigned to another Accounts user (PRD AD2). */
+    canReassign?: boolean;
   };
 }
 

@@ -4,11 +4,14 @@ import { STATUS_LABELS, decisionReasonSchema, describeChange, formatDateIST, for
 import { approveApplication, getApplicationForReview, pickUpApplication, rejectApplication, reviewDocumentUrl } from '../../api/accounts';
 import { ApiError } from '../../api/client';
 import { getApplicationForManager, managerApprove, managerDocumentUrl, managerReject } from '../../api/manager';
+import { adminDocumentUrl, getRegistration, listUsers, reassignRegistration } from '../../api/admin';
 import { SubmissionDetails } from '../../components/SubmissionDetails';
 import { Alert, Badge, Loading, Modal, SecondaryButton } from '../../components/ui';
 import { describeDuplicateField } from '../../lib/duplicates';
 
-type Reviewer = 'accounts' | 'manager';
+type Reviewer = 'accounts' | 'manager' | 'admin';
+
+const adminOnly = () => Promise.reject(new Error('Admin cannot approve or reject applications.'));
 
 /** What differs between the Accounts (PRD A3) and Manager (PRD M3) review screens. */
 const REVIEWERS = {
@@ -38,9 +41,19 @@ const REVIEWERS = {
     approveText:
       'This is the final approval. The agreement reference number is assigned and the agreement PDF is generated automatically. The applicant and Admin are emailed.',
   },
+  // AD2: read-only for Admin; the only action is Reassign.
+  admin: {
+    back: { to: '/app/admin/registrations', label: 'Franchise registrations' },
+    get: getRegistration,
+    pickUp: null,
+    approve: adminOnly,
+    reject: adminOnly,
+    docUrl: adminDocumentUrl,
+    approveText: '',
+  },
 } as const;
 
-/** A3 / M3: everything a reviewer needs, with the actions this user may take. */
+/** A3 / M3 / AD2: everything a reviewer needs, with the actions this user may take. */
 export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Reviewer }) {
   const cfg = REVIEWERS[reviewer];
   const { id = '' } = useParams();
@@ -61,7 +74,15 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
           setApp(a);
           setVersion(a.submission.version);
         })
-        .catch((err) => setLoadError(err instanceof ApiError && err.status === 404 ? 'This application is not available to you.' : 'The application could not be loaded.'));
+        .catch((err) =>
+          setLoadError(
+            err instanceof ApiError && err.status === 410
+              ? err.message
+              : err instanceof ApiError && err.status === 404
+                ? 'This application is not available to you.'
+                : 'The application could not be loaded.',
+          ),
+        );
     },
     [id, cfg],
   );
@@ -141,7 +162,9 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
               </>
             )}
           </p>
-          {reviewer === 'accounts' && <p className="text-sm text-slate-600">Assigned to: {app.assignedTo?.name ?? 'Unassigned'}</p>}
+          {(reviewer === 'accounts' || (reviewer === 'admin' && app.status === 'pending_accounts')) && (
+            <p className="text-sm text-slate-600">Assigned to: {app.assignedTo?.name ?? 'Unassigned'}</p>
+          )}
           {app.agreementReferenceNo && (
             <p className="text-sm text-slate-600">
               Agreement reference: <strong className="text-slate-900">{app.agreementReferenceNo}</strong>
@@ -190,7 +213,9 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
 
       {app.duplicate.open && (
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4" role="note">
-          <h2 className="font-semibold text-amber-900">⚠ Possible duplicate — waiting for Admin review</h2>
+          <h2 className="font-semibold text-amber-900">
+            {app.duplicate.confirmed ? '⚠ Admin confirmed this is a duplicate' : '⚠ Possible duplicate — waiting for Admin review'}
+          </h2>
           <ul className="mt-1 list-disc pl-5 text-sm text-amber-900">
             {app.duplicate.matches.map((m, i) => (
               <li key={i}>
@@ -198,7 +223,19 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
               </li>
             ))}
           </ul>
-          {actions.approveBlockedReason && <p className="mt-2 text-sm text-amber-900">{actions.approveBlockedReason}</p>}
+          {app.duplicate.confirmed ? (
+            <p className="mt-2 text-sm text-amber-900">
+              Admin's note ({formatDateTimeIST(app.duplicate.confirmed.at)}): <strong>{app.duplicate.confirmed.note}</strong>
+              {reviewer !== 'admin' && ' Please reject the application using this note as the reason. Approve is not available.'}
+            </p>
+          ) : (
+            actions.approveBlockedReason && <p className="mt-2 text-sm text-amber-900">{actions.approveBlockedReason}</p>
+          )}
+          {reviewer === 'admin' && !app.duplicate.confirmed && (
+            <Link to="/app/admin/duplicates" className="mt-2 inline-block text-sm font-medium text-amber-900 underline">
+              Open Duplicate Review
+            </Link>
+          )}
         </div>
       )}
 
@@ -248,7 +285,9 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
         </div>
 
         <aside className="space-y-5">
-          {reviewer === 'manager' && (
+          {reviewer === 'admin' && actions.canReassign && <ReassignCard app={app} onDone={() => load(version)} />}
+
+          {reviewer !== 'accounts' && (
             <section className="card">
               <h2 className="font-semibold text-slate-900">Accounts Decision</h2>
               {app.accountsDecision ? (
@@ -261,7 +300,7 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
             </section>
           )}
 
-          {reviewer === 'manager' && app.generatedAgreement && (
+          {reviewer !== 'accounts' && app.generatedAgreement && (
             <section className="card">
               <h2 className="font-semibold text-slate-900">Agreement PDF</h2>
               <p className="mt-1 text-sm text-slate-700">
@@ -269,7 +308,7 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
                 {app.generatedAgreement.status === 'failed' && <span className="text-red-700">Generation failed.</span>}
                 {app.generatedAgreement.status === 'pending' && 'Being generated…'}
               </p>
-              <Link to="/app/manager/agreements" className="mt-2 inline-block text-sm font-medium text-brand hover:underline">
+              <Link to={`/app/${reviewer}/agreements`} className="mt-2 inline-block text-sm font-medium text-brand hover:underline">
                 Open Generated Agreements →
               </Link>
             </section>
@@ -368,5 +407,74 @@ export function ApplicationReviewPage({ reviewer = 'accounts' }: { reviewer?: Re
         </Modal>
       )}
     </div>
+  );
+}
+
+/** AD2: move a Pending Accounts application to another active Accounts user (logged; the new assignee is emailed). */
+function ReassignCard({ app, onDone }: { app: ReviewApplicationView; onDone: () => void }) {
+  const [users, setUsers] = useState<{ id: string; name: string }[] | null>(null);
+  const [toUserId, setToUserId] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    listUsers('accounts')
+      .then((all) => setUsers(all.filter((u) => u.isActive && u.passwordSet).map((u) => ({ id: u.id, name: u.name }))))
+      .catch(() => setUsers([]));
+  }, []);
+
+  const submit = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await reassignRegistration(app.id, { toUserId: toUserId === 'unassigned' ? null : toUserId, note: note.trim() });
+      setMessage({ tone: 'success', text: 'Reassigned. The new assignee has been emailed.' });
+      setToUserId('');
+      setNote('');
+      onDone();
+    } catch (err) {
+      setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : 'Something went wrong. Please try again.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card space-y-3">
+      <h2 className="font-semibold text-slate-900">Reassign Accounts reviewer</h2>
+      {!users ? (
+        <Loading />
+      ) : (
+        <>
+          <div>
+            <label htmlFor="reassign-to" className="label">
+              Assign to
+            </label>
+            <select id="reassign-to" className="input" value={toUserId} onChange={(e) => setToUserId(e.target.value)}>
+              <option value="">Choose…</option>
+              {app.assignedTo && <option value="unassigned">Unassigned (back to the queue)</option>}
+              {users
+                .filter((u) => u.id !== app.assignedTo?.id)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="reassign-note" className="label">
+              Note (optional)
+            </label>
+            <textarea id="reassign-note" rows={2} maxLength={500} className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          {message && <Alert tone={message.tone}>{message.text}</Alert>}
+          <button className="btn-primary" disabled={busy || !toUserId} onClick={() => void submit()}>
+            {busy ? 'Reassigning…' : 'Reassign'}
+          </button>
+        </>
+      )}
+    </section>
   );
 }

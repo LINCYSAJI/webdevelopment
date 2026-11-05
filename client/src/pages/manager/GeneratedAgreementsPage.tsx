@@ -1,3 +1,4 @@
+import { getAdminAgreementEmailHistory, listAdminGeneratedAgreements } from '../../api/admin';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDateIST, formatDateTimeIST, sendAgreementSchema, toFieldErrors, type AgreementEmailLogView, type GeneratedAgreementRow } from '@fap/shared';
@@ -15,8 +16,12 @@ import { Alert, Badge, Field, Loading, Modal, PageHeader, SecondaryButton } from
 
 type Dialog = { kind: 'view' | 'send' | 'history'; row: GeneratedAgreementRow } | null;
 
-/** M5: every generated agreement, with View, Download, Send / Resend, Email History and Retry. */
-export function GeneratedAgreementsPage() {
+/**
+ * M5: every generated agreement, with View, Download, Send / Resend, Email History and Retry.
+ * AD6 (viewer="admin"): the same list with Email History only — Admin never opens the PDF (open question Q1 default).
+ */
+export function GeneratedAgreementsPage({ viewer = 'manager' }: { viewer?: 'manager' | 'admin' }) {
+  const isAdmin = viewer === 'admin';
   const [rows, setRows] = useState<GeneratedAgreementRow[] | null>(null);
   const [error, setError] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -25,10 +30,10 @@ export function GeneratedAgreementsPage() {
   const [search, setSearch] = useState('');
 
   const load = useCallback(() => {
-    listGeneratedAgreements()
+    (isAdmin ? listAdminGeneratedAgreements() : listGeneratedAgreements())
       .then(setRows)
       .catch(() => setError(true));
-  }, []);
+  }, [isAdmin]);
   useEffect(load, [load]);
 
   const retry = async (row: GeneratedAgreementRow) => {
@@ -64,8 +69,20 @@ export function GeneratedAgreementsPage() {
       <Badge color="amber">Not sent</Badge>
     );
 
+  const historyButton = (r: GeneratedAgreementRow) => (
+    <SecondaryButton className="px-3 py-1.5 text-xs" onClick={() => setDialog({ kind: 'history', row: r })}>
+      Email History
+    </SecondaryButton>
+  );
+
   const actions = (r: GeneratedAgreementRow) =>
-    r.status === 'generated' ? (
+    isAdmin ? (
+      <div className="flex flex-wrap items-center gap-2">
+        {r.status === 'failed' && <Badge color="red">Generation Failed</Badge>}
+        {r.status === 'pending' && <Badge color="gray">Generating…</Badge>}
+        {historyButton(r)}
+      </div>
+    ) : r.status === 'generated' ? (
       <div className="flex flex-wrap gap-2">
         <SecondaryButton className="px-3 py-1.5 text-xs" onClick={() => setDialog({ kind: 'view', row: r })}>
           View
@@ -76,9 +93,7 @@ export function GeneratedAgreementsPage() {
         <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setDialog({ kind: 'send', row: r })}>
           {r.timesSent > 0 ? 'Resend' : 'Send to Franchisee'}
         </button>
-        <SecondaryButton className="px-3 py-1.5 text-xs" onClick={() => setDialog({ kind: 'history', row: r })}>
-          Email History
-        </SecondaryButton>
+        {historyButton(r)}
       </div>
     ) : r.status === 'failed' ? (
       <div className="flex flex-wrap items-center gap-2">
@@ -95,7 +110,11 @@ export function GeneratedAgreementsPage() {
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Generated Agreements"
-        description="Agreement PDFs created on final approval. Only Managers can view, download or send them."
+        description={
+          isAdmin
+            ? 'Agreement records and their email history. Only Managers can open, download or send the PDFs.'
+            : 'Agreement PDFs created on final approval. Only Managers can view, download or send them.'
+        }
       />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
 
@@ -105,7 +124,7 @@ export function GeneratedAgreementsPage() {
       </div>
 
       {visible.length === 0 ? (
-        <div className="card text-center text-sm text-slate-600">No generated agreements yet. They appear here when you give final approval.</div>
+        <div className="card text-center text-sm text-slate-600">No generated agreements yet. They appear here after final approval.</div>
       ) : (
         <>
           <div className="card hidden overflow-x-auto p-0 xl:block">
@@ -127,7 +146,7 @@ export function GeneratedAgreementsPage() {
                   <tr key={r.id} className="align-top">
                     <td className="px-3 py-2 font-medium text-slate-900">
                       {r.referenceNumber}
-                      <Link to={`/app/manager/applications/${r.registrationId}`} className="block text-xs font-normal text-brand hover:underline">
+                      <Link to={isAdmin ? `/app/admin/registrations/${r.registrationId}` : `/app/manager/applications/${r.registrationId}`} className="block text-xs font-normal text-brand hover:underline">
                         {r.applicationId}
                       </Link>
                     </td>
@@ -151,7 +170,7 @@ export function GeneratedAgreementsPage() {
                   <div>
                     <div className="font-semibold text-slate-900">{r.referenceNumber}</div>
                     <div className="text-sm text-slate-700">{r.firmName}</div>
-                    <Link to={`/app/manager/applications/${r.registrationId}`} className="text-xs text-brand hover:underline">
+                    <Link to={isAdmin ? `/app/admin/registrations/${r.registrationId}` : `/app/manager/applications/${r.registrationId}`} className="text-xs text-brand hover:underline">
                       {r.applicationId}
                     </Link>
                   </div>
@@ -185,7 +204,9 @@ export function GeneratedAgreementsPage() {
           onFailed={() => load()}
         />
       )}
-      {dialog?.kind === 'history' && <HistoryDialog row={dialog.row} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'history' && (
+        <HistoryDialog row={dialog.row} load={isAdmin ? getAdminAgreementEmailHistory : getAgreementEmailHistory} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 }
@@ -264,14 +285,14 @@ function SendDialog({ row, onClose, onSent, onFailed }: { row: GeneratedAgreemen
   );
 }
 
-function HistoryDialog({ row, onClose }: { row: GeneratedAgreementRow; onClose: () => void }) {
+function HistoryDialog({ row, load, onClose }: { row: GeneratedAgreementRow; load: (id: string) => Promise<AgreementEmailLogView[]>; onClose: () => void }) {
   const [items, setItems] = useState<AgreementEmailLogView[] | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
-    getAgreementEmailHistory(row.id)
+    load(row.id)
       .then(setItems)
       .catch(() => setError(true));
-  }, [row.id]);
+  }, [row.id, load]);
 
   return (
     <Modal title={`Email history: ${row.referenceNumber}`} onClose={onClose} wide>

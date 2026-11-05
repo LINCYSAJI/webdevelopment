@@ -8,3 +8,4 @@ export * from './registration';
 export * from './franchise';
 export * from './workflow';
 export * from './legal';
+export * from './oversight';

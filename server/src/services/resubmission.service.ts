@@ -163,7 +163,8 @@ export async function resubmit(user: UserDocument, input: RegistrationData, ctx:
   if (Object.keys(blocking).length) throw new AppError(409, 'This application cannot be resubmitted. Please see the highlighted fields.', 'duplicate_blocked', { fields: blocking });
 
   // Only matches not already raised for this application need a new warning and flag.
-  const known = new Set((await DuplicateFlag.find({ registrationId: reg._id })).flatMap((f) => f.matches.map(matchKey)));
+  // Matches Admin cleared (or still open) are not raised again; confirmed duplicates are (PRD A19, AD3).
+  const known = new Set((await DuplicateFlag.find({ registrationId: reg._id, status: { $in: ['open', 'not_duplicate'] } })).flatMap((f) => f.matches.map(matchKey)));
   const newMatches: DuplicateMatch[] = (await findPossibleDuplicates(data, reg._id)).filter((m) => !known.has(matchKey(m)));
   if (newMatches.length && !data.acknowledgeDuplicates) {
     throw new AppError(409, 'Some details are already linked to another registration.', 'duplicate_warning', { warnings: toWarnings(newMatches) });

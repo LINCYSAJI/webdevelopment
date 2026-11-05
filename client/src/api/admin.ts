@@ -1,4 +1,13 @@
 import type {
+  AdminDashboardView,
+  AgreementEmailLogView,
+  DuplicateCaseRow,
+  DuplicateComparisonView,
+  GeneratedAgreementRow,
+  RejectionRow,
+  ReviewApplicationView,
+  ReviewListRow,
+  TrackingView,
   ReassignInput,
   AdminUserView,
   AgreementDraftInput,
@@ -124,3 +133,38 @@ export const eraseDataRequest = (id: string) => api<{ status: 'completed' }>(`/a
 
 export const declineDataRequest = (id: string, note: string) =>
   api<{ request: MyDataRequestView }>(`/admin/data-requests/${id}/decline`, { method: 'POST', json: { note } });
+
+// ---------- Admin oversight (PRD AD1–AD6) ----------
+
+/** Query string from the address-bar filters, leaving out empty values. */
+export const toQuery = (params: URLSearchParams | Record<string, string | undefined>) => {
+  const q = new URLSearchParams();
+  const entries = params instanceof URLSearchParams ? [...params.entries()] : Object.entries(params);
+  for (const [k, v] of entries) if (v) q.set(k, v);
+  return q.toString();
+};
+
+export const getAdminDashboard = () => api<{ dashboard: AdminDashboardView }>('/admin/dashboard').then((r) => r.dashboard);
+
+export const listRegistrations = (params: URLSearchParams) => api<Paginated<ReviewListRow>>(`/admin/registrations?${toQuery(params)}`);
+export const registrationsExportUrl = (params: URLSearchParams) => `/api/admin/registrations/export?${toQuery(params)}`;
+
+export const getRegistration = (id: string, version?: number) =>
+  api<{ application: ReviewApplicationView }>(`/admin/registrations/${id}${version ? `?version=${version}` : ''}`).then((r) => r.application);
+export const adminDocumentUrl = (applicationId: string) => (documentId: string) => `/api/admin/registrations/${applicationId}/documents/${documentId}`;
+
+export const getTracking = () => api<{ tracking: TrackingView }>('/admin/tracking').then((r) => r.tracking);
+
+export const listApproved = (params: URLSearchParams) => api<Paginated<ReviewListRow>>(`/admin/approved?${toQuery(params)}`);
+export const approvedExportUrl = (params: URLSearchParams) => `/api/admin/approved/export?${toQuery(params)}`;
+export const listRejected = (params: URLSearchParams) => api<Paginated<RejectionRow>>(`/admin/rejected?${toQuery(params)}`);
+export const rejectedExportUrl = (params: URLSearchParams) => `/api/admin/rejected/export?${toQuery(params)}`;
+
+export const listAdminGeneratedAgreements = () => api<{ items: GeneratedAgreementRow[] }>('/admin/generated-agreements').then((r) => r.items);
+export const getAdminAgreementEmailHistory = (id: string) =>
+  api<{ items: AgreementEmailLogView[] }>(`/admin/generated-agreements/${id}/emails`).then((r) => r.items);
+
+export const listDuplicateCases = () => api<{ items: DuplicateCaseRow[] }>('/admin/duplicates').then((r) => r.items);
+export const getDuplicateComparison = (id: string) => api<{ comparison: DuplicateComparisonView }>(`/admin/duplicates/${id}`).then((r) => r.comparison);
+export const decideDuplicate = (id: string, decision: 'not-duplicate' | 'confirm', note: string) =>
+  api<{ status: string }>(`/admin/duplicates/${id}/${decision}`, { method: 'POST', json: { note } });

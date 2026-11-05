@@ -4,19 +4,26 @@ import {
   MANAGED_ROLES,
   agreementDraftSchema,
   dataRequestDeclineSchema,
+  duplicateDecisionSchema,
   dataRequestListQuerySchema,
   holidaySchema,
   internalUserSchema,
   reassignSchema,
   settingsSchema,
+  type AdminRegistrationQuery,
+  type AdminRejectedQuery,
   type ManagedRole,
 } from '@fap/shared';
+import { sendCsv } from '../lib/csv';
 import { AppError, asyncHandler } from '../lib/errors';
 import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
 import * as dataRequests from '../services/data-request.service';
+import * as duplicates from '../services/duplicate.service';
+import * as generated from '../services/generated-agreement.service';
+import * as oversight from '../services/oversight.service';
 import { listAuditActions, listAuditLogs } from '../services/audit.service';
 import * as settings from '../services/settings.service';
 import * as users from '../services/users.service';
@@ -265,5 +272,127 @@ adminRouter.post(
   validateBody(dataRequestDeclineSchema),
   asyncHandler(async (req, res) => {
     res.json({ request: await dataRequests.declineRequest(req.params.id, req.body.note, actor(req)) });
+  }),
+);
+
+// ---------- Admin oversight (PRD AD1–AD6) ----------
+
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+adminRouter.get(
+  '/dashboard',
+  asyncHandler(async (_req, res) => {
+    res.json({ dashboard: await oversight.dashboard() });
+  }),
+);
+
+adminRouter.get(
+  '/registrations',
+  asyncHandler(async (req, res) => {
+    res.json(await oversight.listRegistrations(req.query as AdminRegistrationQuery));
+  }),
+);
+
+adminRouter.get(
+  '/registrations/export',
+  asyncHandler(async (req, res) => {
+    sendCsv(res, `registrations-${stamp()}.csv`, await oversight.exportRegistrations(req.query as AdminRegistrationQuery, actor(req)));
+  }),
+);
+
+adminRouter.get(
+  '/registrations/:id',
+  asyncHandler(async (req, res) => {
+    const version = req.query.version ? Number(req.query.version) : undefined;
+    res.json({ application: await oversight.getRegistration(req.params.id, version) });
+  }),
+);
+
+adminRouter.get(
+  '/registrations/:id/documents/:documentId',
+  asyncHandler(async (req, res) => {
+    sendFile(res, await oversight.openDocument(req.params.id, req.params.documentId));
+  }),
+);
+
+adminRouter.get(
+  '/tracking',
+  asyncHandler(async (_req, res) => {
+    res.json({ tracking: await oversight.tracking() });
+  }),
+);
+
+adminRouter.get(
+  '/approved',
+  asyncHandler(async (req, res) => {
+    res.json(await oversight.listApproved(req.query as AdminRegistrationQuery));
+  }),
+);
+
+adminRouter.get(
+  '/approved/export',
+  asyncHandler(async (req, res) => {
+    sendCsv(res, `approved-applications-${stamp()}.csv`, await oversight.exportApproved(req.query as AdminRegistrationQuery, actor(req)));
+  }),
+);
+
+adminRouter.get(
+  '/rejected',
+  asyncHandler(async (req, res) => {
+    res.json(await oversight.listRejected(req.query as AdminRejectedQuery));
+  }),
+);
+
+adminRouter.get(
+  '/rejected/export',
+  asyncHandler(async (req, res) => {
+    sendCsv(res, `rejected-applications-${stamp()}.csv`, await oversight.exportRejected(req.query as AdminRejectedQuery, actor(req)));
+  }),
+);
+
+/** AD6: the agreement records and email history only — never the PDF itself (open question Q1 default). */
+adminRouter.get(
+  '/generated-agreements',
+  asyncHandler(async (_req, res) => {
+    res.json({ items: await generated.list() });
+  }),
+);
+
+adminRouter.get(
+  '/generated-agreements/:id/emails',
+  asyncHandler(async (req, res) => {
+    res.json({ items: await generated.emailHistory(req.params.id) });
+  }),
+);
+
+// ---------- Duplicate Review (PRD AD3) ----------
+
+adminRouter.get(
+  '/duplicates',
+  asyncHandler(async (_req, res) => {
+    res.json({ items: await duplicates.listOpen() });
+  }),
+);
+
+adminRouter.get(
+  '/duplicates/:id',
+  asyncHandler(async (req, res) => {
+    res.json({ comparison: await duplicates.compare(req.params.id) });
+  }),
+);
+
+adminRouter.post(
+  '/duplicates/:id/not-duplicate',
+  validateBody(duplicateDecisionSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await duplicates.clearFlag(req.params.id, req.body.note, actor(req)));
+  }),
+);
+
+adminRouter.post(
+  '/duplicates/:id/confirm',
+  validateBody(duplicateDecisionSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await duplicates.confirmFlag(req.params.id, req.body.note, actor(req)));
   }),
 );

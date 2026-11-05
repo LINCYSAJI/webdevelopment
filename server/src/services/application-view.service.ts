@@ -127,7 +127,12 @@ const HISTORY_TITLES: Record<string, string> = {
   manager_approved: 'Final approval given',
   manager_rejected: 'Changes requested by Manager',
   withdrawn_erased: 'Application withdrawn and personal data erased',
+  duplicate_cleared: 'Duplicate check: marked as not a duplicate',
+  duplicate_confirmed: 'Duplicate check: confirmed as a duplicate',
 };
+
+/** Internal review events that applicants do not see in their timeline. */
+const INTERNAL_EVENTS = new Set(['duplicate_cleared', 'duplicate_confirmed']);
 
 const ROLE_TEAM: Record<string, string> = { franchise_user: 'Applicant', accounts: 'Accounts Team', manager: 'Manager', admin: 'Admin' };
 
@@ -150,7 +155,7 @@ export async function toHistoryView(rows: HistoryRow[], audience: 'applicant' | 
     const ids = [...new Set(rows.map((r) => r.actorId?.toString()).filter(Boolean))];
     for (const u of await User.find({ _id: { $in: ids } }, { name: 1 })) names.set(u._id.toString(), u.name);
   }
-  return rows.map((h) => {
+  return rows.filter((h) => audience === 'internal' || !INTERNAL_EVENTS.has(h.event)).map((h) => {
     const role = (h.actorRole ?? null) as Role | null;
     const by =
       audience === 'applicant'
