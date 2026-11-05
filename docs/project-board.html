@@ -341,11 +341,11 @@ tr:last-child td { border-bottom: 0; }
 // =====================================================================================
 const SYNC = {
   date: '2026-11-05',
-  developmentHead: '0242a31',
-  developmentCommits: 15,
+  developmentHead: '33db149',
+  developmentCommits: 16,
   productionHead: '7c3cc7f',
   productionLabel: 'Initial commit: steps 1-4',
-  aheadOfProduction: 14,
+  aheadOfProduction: 15,
   remote: null,
   pushed: false,
   tests: { suites: 7, passing: true, atCommit: '0242a31' },
@@ -353,13 +353,16 @@ const SYNC = {
   headline: 'Phase 7 ready for your test · Phase 8 next',
 };
 const COMMITS = [
+  ['33db149', '2026-11-05', 'Add the project-board skill and keep the board in the repository'],
   ['0242a31', '2026-11-05', 'Step 7: Admin oversight, duplicate review, tracking and exports'],
   ['c63f653', '2026-11-05', 'Legal compliance: Privacy Policy, Terms, consent and Delete my account'],
   ['4b54bfd', '2026-11-05', 'Step 6: Manager review, automatic agreement PDF, send and resend'],
-  ['886e543', '2026-11-04', 'Step 5: Accounts review, Edit & Resubmit, reviewer handover'],
+  ['886e543', '2026-11-05', 'Step 5: Accounts review, Edit & Resubmit, reviewer handover'],
   ['06e6558', '2026-11-04', 'Cut database round trips on the verification page'],
   ['04c9665', '2026-11-04', 'Share file and duplicate-key helpers instead of copying them'],
-  ['7c3cc7f', '2026-11-04', 'Initial commit: steps 1-4 of the Franchise Online Agreement Portal'],
+  ['f586b5d', '2026-11-04', 'Show auto-send failures on the verification page'],
+  ['1ad4b74', '2026-11-04', 'Lock migrations so several server instances can start together'],
+  ['a37f44b', '2026-11-04', 'Run the duplicate rule when a franchise user changes email/mobile'],
 ];
 const STATUSES = [
   { key: 'planned', label: 'Planned', hint: 'Scoped for a later phase' },
