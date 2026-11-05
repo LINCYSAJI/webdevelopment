@@ -341,18 +341,20 @@ tr:last-child td { border-bottom: 0; }
 // =====================================================================================
 const SYNC = {
   date: '2026-11-05',
-  developmentHead: '33db149',
-  developmentCommits: 16,
+  developmentHead: '9efe543',
+  developmentCommits: 19,
   productionHead: '7c3cc7f',
   productionLabel: 'Initial commit: steps 1-4',
-  aheadOfProduction: 15,
+  aheadOfProduction: 18,
   remote: null,
   pushed: false,
-  tests: { suites: 7, passing: true, atCommit: '0242a31' },
+  tests: { suites: 7, passing: true, atCommit: '9efe543' },
   uncommittedAtSync: 0,
-  headline: 'Phase 7 ready for your test · Phase 8 next',
+  headline: 'Full browser walkthrough passed (41/41 steps) · Phase 8 next',
 };
 const COMMITS = [
+  ['9efe543', '2026-11-05', 'Add the recorded browser walkthrough (npm run walkthrough)'],
+  ['2a8d181', '2026-11-05', 'Check the login without a failed request for logged-out visitors'],
   ['33db149', '2026-11-05', 'Add the project-board skill and keep the board in the repository'],
   ['0242a31', '2026-11-05', 'Step 7: Admin oversight, duplicate review, tracking and exports'],
   ['c63f653', '2026-11-05', 'Legal compliance: Privacy Policy, Terms, consent and Delete my account'],
@@ -361,8 +363,6 @@ const COMMITS = [
   ['06e6558', '2026-11-04', 'Cut database round trips on the verification page'],
   ['04c9665', '2026-11-04', 'Share file and duplicate-key helpers instead of copying them'],
   ['f586b5d', '2026-11-04', 'Show auto-send failures on the verification page'],
-  ['1ad4b74', '2026-11-04', 'Lock migrations so several server instances can start together'],
-  ['a37f44b', '2026-11-04', 'Run the duplicate rule when a franchise user changes email/mobile'],
 ];
 const STATUSES = [
   { key: 'planned', label: 'Planned', hint: 'Scoped for a later phase' },
@@ -396,6 +396,7 @@ const CARDS = [
   { t: 'Append-only audit log', p: '1', s: 'done', a: 'Security', d: 'Important actions recorded permanently; rows can never be changed or deleted.', r: 'AD10' },
   { t: 'Branding from Settings', p: '1', s: 'done', a: 'Screen', d: 'Logo, colours, organisation and portal name, support contact; nothing hard-coded.', r: '§14' },
   { t: 'Role menus and login page', p: '1', s: 'done', a: 'Screen', d: 'Each role sees only its own menu; P1 login with email, username or mobile.', r: 'P1, §7' },
+  { t: 'Error-free login check for visitors', p: '1', s: 'done', a: 'Security', d: 'Found by the browser walkthrough: logged-out page loads no longer log failed requests.', r: '§13' },
   // Phase 2
   { t: 'Accounts and Manager user management', p: '2', s: 'done', a: 'Screen', d: 'Admin creates, edits, deactivates and reactivates staff; emailed set-password links.', r: 'AD8, AD9, N15' },
   { t: 'Forgot and reset password', p: '2', s: 'done', a: 'Security', d: 'Time-limited emailed reset link for every role.', r: 'P6' },
@@ -454,6 +455,8 @@ const CARDS = [
   { t: 'Expired code clean-up', p: '8', s: 'notstarted', a: 'Data', d: 'Clear expired one-time codes and unused uploads on schedule.', r: '§10.3' },
   { t: 'Check every notification N1–N15', p: '8', s: 'notstarted', a: 'Notification', d: 'Right people, right content, all logged.', r: '§11' },
   // Phase 9
+  { t: 'Recorded end-to-end browser walkthrough', p: '9', s: 'done', a: 'Review', d: 'A real browser runs every main flow (41 steps) and records a captioned video; npm run walkthrough.', r: '§16' },
+  { t: 'Watch the walkthrough video', p: '9', s: 'test', a: 'Review', d: 'portal-walkthrough.mp4 in the project folder: 8 flows, about 9 minutes.', r: '§16', w: true },
   { t: 'Run the PRD acceptance checklist', p: '9', s: 'planned', a: 'Review', d: 'Every item in PRD §16, all four roles, phones and desktops.', r: '§16', w: true },
   { t: 'Live database on MongoDB Atlas', p: '9', s: 'planned', a: 'Infrastructure', d: 'Set up the live database with backups.', r: 'D14' },
   { t: 'Private file storage (S3)', p: '9', s: 'planned', a: 'Infrastructure', d: 'Replace local storage with a private bucket and short-lived links.', r: 'Rule 4' },
@@ -475,6 +478,7 @@ const SCREENS = [
 ];
 
 const ACTIONS = [
+  ['Watch portal-walkthrough.mp4', 'The recorded run of every main flow, in the project folder', 'Now'],
   ['Send the code repository address', 'So the work can be pushed to development', 'Any time'],
   ['Fill in Settings → Legal and privacy', 'Registered address, Grievance Officer name and email', 'Before go-live'],
   ['Have a lawyer review the Privacy Policy and Terms', 'Including the 8-year retention period', 'Before go-live'],
