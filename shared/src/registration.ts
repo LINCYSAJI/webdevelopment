@@ -77,27 +77,36 @@ export const mobileField = z
   .min(1, 'Enter the mobile number')
   .regex(MOBILE_REGEX, 'Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9');
 
-const fileToken = (label: string) =>
-  z.string({ error: `Upload the ${label}` }).regex(UPLOAD_TOKEN_REGEX, `Upload the ${label}`);
+/**
+ * On Edit & Resubmit an unchanged document is kept instead of uploaded again:
+ * the file field then holds "keep:<documentId>" (PRD F3).
+ */
+export const KEEP_DOCUMENT_REGEX = /^keep:[a-f0-9]{24}$/;
+export const keepDocumentRef = (documentId: string) => `keep:${documentId}`;
 
-const optionalFileToken = z
-  .string()
-  .regex(UPLOAD_TOKEN_REGEX)
-  .nullish()
-  .transform((v) => v ?? null);
-
-export const contactSchema = z.object({
-  name: personName('Name'),
-  mobile: mobileField,
-  email: emailField,
-  idProofFile: fileToken('ID proof'),
-  photoFile: fileToken('photograph'),
-});
+const isFileRef = (allowKeep: boolean) => (v: string) => UPLOAD_TOKEN_REGEX.test(v) || (allowKeep && KEEP_DOCUMENT_REGEX.test(v));
 
 /** Technical safety limit only; in practice there is no limit on contact persons (PRD 8.4). */
 export const MAX_CONTACTS = 100;
 
-export const registrationSchema = z
+/** The registration form rules. `allowKeep` is true for Edit & Resubmit. */
+function buildRegistrationSchema(allowKeep: boolean) {
+  const fileToken = (label: string) => z.string({ error: `Upload the ${label}` }).refine(isFileRef(allowKeep), `Upload the ${label}`);
+  const optionalFileToken = z
+    .string()
+    .refine(isFileRef(allowKeep))
+    .nullish()
+    .transform((v) => v ?? null);
+
+  const contactSchema = z.object({
+    name: personName('Name'),
+    mobile: mobileField,
+    email: emailField,
+    idProofFile: fileToken('ID proof'),
+    photoFile: fileToken('photograph'),
+  });
+
+  return z
   .object({
     // Section 1: Franchise Details
     franchiseModel: text('Franchise Model', 2, 100),
@@ -152,6 +161,15 @@ export const registrationSchema = z
       ctx.addIssue({ code: 'custom', path: ['gstFile'], message: 'Upload the GST Certificate' });
     }
   });
+}
+
+/** New registration: every file must be freshly uploaded. */
+export const registrationSchema = buildRegistrationSchema(false);
+/**
+ * Edit & Resubmit: files may also be kept from earlier submissions. The signatory's email and
+ * mobile are always taken from the account (changed only in My Profile).
+ */
+export const resubmissionSchema = buildRegistrationSchema(true);
 
 export type RegistrationInput = z.input<typeof registrationSchema>;
 export type RegistrationData = z.output<typeof registrationSchema>;

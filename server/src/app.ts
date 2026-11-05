@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { config } from './config';
 import { errorHandler, notFound } from './middleware/error';
+import { accountsRouter } from './routes/accounts.routes';
 import { adminRouter } from './routes/admin.routes';
 import { authRouter } from './routes/auth.routes';
 import { devRouter } from './routes/dev.routes';
@@ -25,6 +26,7 @@ export function createApp() {
   app.use('/api/public', publicRouter);
   app.use('/api/franchise', franchiseRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/accounts', accountsRouter);
   if (!config.isProduction) app.use('/api/dev', devRouter);
 
   app.use('/api', notFound);

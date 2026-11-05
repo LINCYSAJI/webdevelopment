@@ -53,6 +53,8 @@ const registrationSchema = new Schema(
       mobileVerifiedAt: { type: Date },
     },
     submittedAt: { type: Date, required: true },
+    // Latest submit or resubmit (PRD A2 "Submitted / Resubmitted On").
+    lastSubmittedAt: { type: Date },
     // When the application entered its current waiting stage; business-day reminders count from here (PRD 10.8).
     stageEnteredAt: { type: Date },
   },

@@ -5,6 +5,7 @@ import {
   agreementDraftSchema,
   holidaySchema,
   internalUserSchema,
+  reassignSchema,
   settingsSchema,
   type ManagedRole,
 } from '@fap/shared';
@@ -16,6 +17,7 @@ import * as agreements from '../services/agreement.service';
 import { listAuditActions, listAuditLogs } from '../services/audit.service';
 import * as settings from '../services/settings.service';
 import * as users from '../services/users.service';
+import * as workflow from '../services/workflow.service';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireRole('admin'));
@@ -56,6 +58,15 @@ adminRouter.post(
   '/users/:role/:id/deactivate',
   asyncHandler(async (req, res) => {
     res.json({ user: await users.setUserActive(managedRole(req.params.role), req.params.id, false, actor(req)) });
+  }),
+);
+
+/** Moves every application an Accounts user is reviewing (used before deactivating them, PRD AD8). */
+adminRouter.post(
+  '/users/accounts/:id/move-assignments',
+  validateBody(reassignSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ moved: await workflow.reassignAllFrom(req.params.id, req.body, actor(req)) });
   }),
 );
 
@@ -214,5 +225,16 @@ adminRouter.post(
   '/agreements/:id/deactivate',
   asyncHandler(async (req, res) => {
     res.json({ version: await agreements.deactivateVersion(req.params.id, actor(req)) });
+  }),
+);
+
+// ---------- Registrations: reassign the Accounts reviewer (PRD AD2, 10.6) ----------
+
+adminRouter.post(
+  '/registrations/:id/reassign',
+  validateBody(reassignSchema),
+  asyncHandler(async (req, res) => {
+    await workflow.reassign(req.params.id, req.body, actor(req));
+    res.json({ ok: true });
   }),
 );

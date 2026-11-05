@@ -16,8 +16,8 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
   ],
   accounts: [
     { label: 'Dashboard', path: '/app' },
-    { label: 'Pending Applications', path: '/app/accounts/pending', step: 5 },
-    { label: 'My Reviewed Applications', path: '/app/accounts/reviewed', step: 5 },
+    { label: 'Pending Applications', path: '/app/accounts/pending' },
+    { label: 'My Reviewed Applications', path: '/app/accounts/reviewed' },
   ],
   manager: [
     { label: 'Dashboard', path: '/app' },

@@ -17,7 +17,11 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RegistrationSuccessPage } from './pages/RegistrationSuccessPage';
 import { RegistrationVerifyPage } from './pages/RegistrationVerifyPage';
+import { ApplicationReviewPage } from './pages/accounts/ApplicationReviewPage';
+import { PendingApplicationsPage } from './pages/accounts/PendingApplicationsPage';
+import { ReviewedApplicationsPage } from './pages/accounts/ReviewedApplicationsPage';
 import { MyApplicationPage } from './pages/franchise/MyApplicationPage';
+import { ResubmitPage } from './pages/franchise/ResubmitPage';
 import { ProfilePage } from './pages/franchise/ProfilePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 
@@ -51,8 +55,12 @@ export function App() {
         <Route index element={<DashboardPage />} />
 
         <Route path="my-application" element={only('franchise_user', <MyApplicationPage />)} />
-        <Route path="my-application/resubmit" element={only('franchise_user', <ComingSoonPage title="Edit & Resubmit" step={5} />)} />
+        <Route path="my-application/resubmit" element={only('franchise_user', <ResubmitPage />)} />
         <Route path="profile" element={only('franchise_user', <ProfilePage />)} />
+
+        <Route path="accounts/pending" element={only('accounts', <PendingApplicationsPage />)} />
+        <Route path="accounts/reviewed" element={only('accounts', <ReviewedApplicationsPage />)} />
+        <Route path="accounts/applications/:id" element={only('accounts', <ApplicationReviewPage />)} />
 
         <Route path="admin/agreement-content" element={only('admin', <AgreementListPage />)} />
         <Route path="admin/agreement-content/:id" element={only('admin', <AgreementEditorPage />)} />

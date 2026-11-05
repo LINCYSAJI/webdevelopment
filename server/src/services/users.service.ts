@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { AdminUserView, ManagedRole, Role, internalUserSchema } from '@fap/shared';
 import { AppError } from '../lib/errors';
 import { duplicateKeyField } from '../lib/mongo-errors';
+import { Registration } from '../models/Registration';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
 import { revokeAllSessions } from './auth.service';
@@ -103,8 +104,18 @@ export async function setUserActive(role: ManagedRole, id: string, isActive: boo
   const user = await findManagedUser(id, role);
   if (user.isActive === isActive) return toAdminUserView(user);
 
-  // Build step 5 adds the rule: an Accounts user with assigned applications must have
-  // them reassigned before deactivation (PRD AD8).
+  // An Accounts user who still has applications to review must hand them over first (PRD AD8).
+  if (!isActive && role === 'accounts') {
+    const assigned = await Registration.countDocuments({ status: 'pending_accounts', assignedTo: user._id });
+    if (assigned > 0) {
+      throw new AppError(
+        409,
+        `${user.name} still has ${assigned} application${assigned === 1 ? '' : 's'} to review. Move ${assigned === 1 ? 'it' : 'them'} to another Accounts user (or back to Unassigned) first.`,
+        'has_assignments',
+        { assignedCount: assigned },
+      );
+    }
+  }
   user.isActive = isActive;
   await user.save();
   if (!isActive) await revokeAllSessions(user._id);

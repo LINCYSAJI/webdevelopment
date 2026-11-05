@@ -27,10 +27,19 @@ const DOC_LABELS: Record<ApplicationDocumentView['type'], string> = {
 };
 
 /** A document name that opens in a viewer; files are fetched only after the server's ownership check. */
-export function DocumentLink({ doc, label }: { doc: ApplicationDocumentView | null; label?: string }) {
+export function DocumentLink({
+  doc,
+  label,
+  urlFor = myDocumentUrl,
+}: {
+  doc: ApplicationDocumentView | null;
+  label?: string;
+  /** Address of a document; defaults to the Franchise User's own documents. */
+  urlFor?: (documentId: string) => string;
+}) {
   const [open, setOpen] = useState(false);
   if (!doc) return <span className="text-sm text-slate-500">Not provided</span>;
-  const url = myDocumentUrl(doc.id);
+  const url = urlFor(doc.id);
   const isImage = doc.mimeType.startsWith('image/');
 
   return (
@@ -57,10 +66,13 @@ export function DocumentLink({ doc, label }: { doc: ApplicationDocumentView | nu
 }
 
 /** Label / value pair for read-only detail views. */
-export function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+export function Detail({ label, changed, children }: { label: string; changed?: boolean; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+    <div className={`min-w-0 ${changed ? '-m-1.5 rounded-md bg-amber-50 p-1.5 ring-1 ring-amber-300' : ''}`}>
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+        {changed && <span className="ml-1 normal-case text-amber-800">· changed</span>}
+      </dt>
       <dd className="mt-0.5 break-words text-sm text-slate-900">{children}</dd>
     </div>
   );

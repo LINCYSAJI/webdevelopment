@@ -24,6 +24,7 @@ import { RegistrationDocument } from '../models/RegistrationDocument';
 import { RegistrationHistory } from '../models/RegistrationHistory';
 import { SubmissionVersion } from '../models/SubmissionVersion';
 import { User, type UserDocument } from '../models/User';
+import { toHistoryView, toSubmissionView, openRegistrationDocument } from './application-view.service';
 import { audit } from './audit.service';
 import { sendEmail } from './email.service';
 import { contactChangedEmail } from './email-templates';
@@ -31,74 +32,13 @@ import { findPossibleDuplicates, notifyAdminsOfDuplicate } from './registration.
 import { issueOtp, otpState, verifyOtp } from './otp.service';
 
 /** Every query here is limited to the logged-in user's own registration (CLAUDE.md rule 2). */
-async function myRegistration(user: UserDocument) {
+export async function myRegistration(user: UserDocument) {
   const reg = await Registration.findOne({ userId: user._id });
   if (!reg) throw new AppError(404, 'No application was found for your account.', 'not_found');
   return reg;
 }
 
-const UNDER_REVIEW: ApplicationStatus[] = ['pending_accounts', 'pending_manager'];
-
-// ---------- Views ----------
-
-type Snapshot = {
-  franchiseModel: string;
-  firmType: string;
-  firmName: string;
-  pan: string;
-  gst: string | null;
-  panDocumentId?: Types.ObjectId | null;
-  gstDocumentId?: Types.ObjectId | null;
-  rentalDocumentId?: Types.ObjectId | null;
-  signatory: { name: string; capacity: string; email: string; mobile: string; idProofDocumentId?: Types.ObjectId | null; photoDocumentId?: Types.ObjectId | null };
-  contacts: { name: string; email: string; mobile: string; idProofDocumentId?: Types.ObjectId | null; photoDocumentId?: Types.ObjectId | null }[];
-};
-
-async function toSubmissionView(registrationId: Types.ObjectId, version: number): Promise<SubmissionView> {
-  const snap = await SubmissionVersion.findOne({ registrationId, version });
-  if (!snap) throw new AppError(404, 'This version was not found.', 'not_found');
-  const data = snap.data as Snapshot;
-  const docs = await RegistrationDocument.find({ registrationId, submissionVersion: version });
-  const byId = new Map(docs.map((d) => [d._id.toString(), d]));
-  const doc = (id?: Types.ObjectId | null): ApplicationDocumentView | null => {
-    const d = id ? byId.get(id.toString()) : undefined;
-    return d ? { id: d._id.toString(), type: d.type as ApplicationDocumentView['type'], fileName: d.fileName, mimeType: d.mimeType, size: d.size } : null;
-  };
-  return {
-    version,
-    submittedAt: snap.submittedAt.toISOString(),
-    franchiseModel: data.franchiseModel,
-    firmType: data.firmType,
-    firmName: data.firmName,
-    pan: data.pan,
-    gst: data.gst ?? null,
-    panDocument: doc(data.panDocumentId),
-    gstDocument: doc(data.gstDocumentId),
-    rentalDocument: doc(data.rentalDocumentId),
-    signatory: {
-      name: data.signatory.name,
-      capacity: data.signatory.capacity,
-      email: data.signatory.email,
-      mobile: data.signatory.mobile,
-      idProof: doc(data.signatory.idProofDocumentId),
-      photo: doc(data.signatory.photoDocumentId),
-    },
-    contacts: data.contacts.map((c) => ({ name: c.name, email: c.email, mobile: c.mobile, idProof: doc(c.idProofDocumentId), photo: doc(c.photoDocumentId) })),
-  };
-}
-
-const HISTORY_TITLES: Record<string, string> = {
-  submitted: 'Application submitted',
-  resubmitted: 'Application resubmitted',
-  accounts_approved: 'Approved by Accounts',
-  accounts_rejected: 'Changes requested by Accounts',
-  manager_approved: 'Final approval given',
-  manager_rejected: 'Changes requested by Manager',
-};
-
-// Reviewers' personal names are never shown to the applicant (PRD F2).
-const actorLabel = (role: Role | null) =>
-  role === 'franchise_user' ? 'You' : role === 'accounts' ? 'Accounts Team' : role === 'manager' ? 'Manager' : role === 'admin' ? 'Admin' : 'System';
+export const UNDER_REVIEW: ApplicationStatus[] = ['pending_accounts', 'pending_manager'];
 
 export async function getMyApplication(user: UserDocument): Promise<MyApplicationView> {
   const reg = await myRegistration(user);
@@ -109,14 +49,7 @@ export async function getMyApplication(user: UserDocument): Promise<MyApplicatio
   ]);
   const agreementVersion = acceptance ? await AgreementVersion.findById(acceptance.agreementVersionId, { format: 1 }) : null;
 
-  const historyView: HistoryEntryView[] = history.map((h) => ({
-    at: h.at.toISOString(),
-    event: h.event,
-    title: HISTORY_TITLES[h.event] ?? h.event,
-    by: actorLabel(h.actorRole as Role | null),
-    reason: h.reason ?? null,
-    submissionVersion: h.submissionVersion ?? null,
-  }));
+  const historyView = await toHistoryView(history, 'applicant');
   const lastRejection = [...history].reverse().find((h) => h.event === 'accounts_rejected' || h.event === 'manager_rejected');
   const status = reg.status as ApplicationStatus;
 
@@ -148,11 +81,7 @@ export async function getMySubmission(user: UserDocument, version: number) {
 /** Streams one of the user's own documents; anything else is "not found". */
 export async function openMyDocument(user: UserDocument, documentId: string) {
   const reg = await myRegistration(user);
-  if (!mongoose.isValidObjectId(documentId)) throw new AppError(404, 'Document not found.', 'not_found');
-  const doc = await RegistrationDocument.findOne({ _id: documentId, registrationId: reg._id });
-  if (!doc) throw new AppError(404, 'Document not found.', 'not_found');
-  const file = await storage.open(doc.storageKey);
-  return { ...file, fileName: doc.fileName, mimeType: doc.mimeType };
+  return openRegistrationDocument(reg._id, documentId);
 }
 
 // ---------- Change login email / mobile (PRD F4) ----------

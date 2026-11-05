@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import mongoose, { Types } from 'mongoose';
+import mongoose, { Types, type ClientSession } from 'mongoose';
 import {
   maskEmail,
   maskMobile,
@@ -25,7 +25,7 @@ import { sendEmail } from './email.service';
 import { duplicateFlagEmail } from './email-templates';
 import { hashUploadToken } from './upload.service';
 
-interface RequestContext {
+export interface RequestContext {
   ip?: string;
   userAgent?: string;
 }
@@ -126,7 +126,7 @@ export async function notifyAdminsOfDuplicate(applicationId: string, firmName: s
   }
 }
 
-function toWarnings(matches: DuplicateMatch[]): DuplicateWarning[] {
+export function toWarnings(matches: DuplicateMatch[]): DuplicateWarning[] {
   const fields = [...new Set(matches.map((m) => m.field))];
   return fields.map((field) => ({
     field,
@@ -136,7 +136,7 @@ function toWarnings(matches: DuplicateMatch[]): DuplicateWarning[] {
 
 // ---------- Uploaded files ----------
 
-interface FileSlot {
+export interface FileSlot {
   field: string; // form field, for error messages
   token: string;
   kind: UploadKind; // the upload kind this slot accepts
@@ -144,7 +144,7 @@ interface FileSlot {
   owner: { kind: 'registration' | 'signatory' | 'contact'; index?: number };
 }
 
-function fileSlots(data: RegistrationData): FileSlot[] {
+export function fileSlots(data: RegistrationData): FileSlot[] {
   const slots: FileSlot[] = [
     { field: 'panFile', token: data.panFile, kind: 'document', type: 'pan', owner: { kind: 'registration' } },
     { field: 'signatory.idProofFile', token: data.signatory.idProofFile, kind: 'document', type: 'id_proof', owner: { kind: 'signatory' } },
@@ -164,7 +164,7 @@ function fileSlots(data: RegistrationData): FileSlot[] {
 }
 
 /** Finds each uploaded file; files expire after 24 hours and can only be used by one application. */
-async function loadUploads(slots: FileSlot[]) {
+export async function loadUploads(slots: FileSlot[]) {
   const hashes = [...new Set(slots.map((s) => hashUploadToken(s.token)))];
   const uploads = await PendingUpload.find({ tokenHash: { $in: hashes }, claimedBy: null, expiresAt: { $gt: new Date() } });
   const byHash = new Map(uploads.map((u) => [u.tokenHash, u]));
@@ -179,6 +179,82 @@ async function loadUploads(slots: FileSlot[]) {
     throw new AppError(400, 'Some files need to be uploaded again.', 'upload_missing', { fields: errors });
   }
   return { byHash, hashes };
+}
+
+// ---------- Saving a submission (shared by Register and Edit & Resubmit) ----------
+
+/** A stored file, whether freshly uploaded or kept from an earlier submission. */
+export interface StoredFileInfo {
+  storageKey: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  sha256: string;
+  uploadedAt: Date;
+}
+
+export const uploadAsFile = (u: { storageKey: string; fileName: string; mimeType: string; size: number; sha256: string; createdAt: Date }): StoredFileInfo => ({
+  storageKey: u.storageKey,
+  fileName: u.fileName,
+  mimeType: u.mimeType,
+  size: u.size,
+  sha256: u.sha256,
+  uploadedAt: u.createdAt,
+});
+
+/**
+ * Saves one document per file slot for this submission version and returns a lookup from form
+ * field (e.g. "signatory.photoFile") to the new document id.
+ */
+export async function saveSubmissionFiles(
+  session: ClientSession,
+  registrationId: Types.ObjectId,
+  version: number,
+  slots: FileSlot[],
+  resolve: (slot: FileSlot) => StoredFileInfo,
+) {
+  const docs = slots.map((slot) => ({ _id: new Types.ObjectId(), registrationId, submissionVersion: version, type: slot.type, owner: slot.owner, ...resolve(slot) }));
+  await RegistrationDocument.insertMany(docs, { session });
+  return (field: string) => docs[slots.findIndex((x) => x.field === field)]?._id ?? null;
+}
+
+/** Marks uploads as used by this application; if someone else used one meanwhile, nothing is saved. */
+export async function claimUploads(session: ClientSession, hashes: string[], registrationId: Types.ObjectId) {
+  if (!hashes.length) return;
+  const claim = await PendingUpload.updateMany({ tokenHash: { $in: hashes }, claimedBy: null }, { $set: { claimedBy: registrationId } }, { session });
+  if (claim.modifiedCount !== hashes.length) {
+    throw new AppError(409, 'Some files were already used in another submission. Please upload them again.', 'upload_conflict');
+  }
+}
+
+/** The permanent snapshot stored for a submission version (PRD 10.7). */
+export function snapshotOf(data: RegistrationData, docId: (field: string) => Types.ObjectId | null) {
+  return {
+    franchiseModel: data.franchiseModel,
+    firmType: data.firmType,
+    firmName: data.firmName,
+    pan: data.pan,
+    gst: data.gst,
+    panDocumentId: docId('panFile'),
+    gstDocumentId: docId('gstFile'),
+    rentalDocumentId: docId('rentalFile'),
+    signatory: {
+      name: data.signatory.name,
+      capacity: data.signatory.capacity,
+      email: data.signatory.email,
+      mobile: data.signatory.mobile,
+      idProofDocumentId: docId('signatory.idProofFile'),
+      photoDocumentId: docId('signatory.photoFile'),
+    },
+    contacts: data.contacts.map((c, i) => ({
+      name: c.name,
+      email: c.email,
+      mobile: c.mobile,
+      idProofDocumentId: docId(`contacts.${i}.idProofFile`),
+      photoDocumentId: docId(`contacts.${i}.photoFile`),
+    })),
+    agreementVersionId: data.agreement.agreementVersionId,
+  };
 }
 
 // ---------- Submit ----------
@@ -211,34 +287,10 @@ export async function submitRegistration(data: RegistrationData, ctx: RequestCon
 
   await mongoose.connection.transaction(async (session) => {
     // 1. Documents, one per file slot (the same upload may be reused, e.g. "Same as Signatory").
-    const docs = slots.map((slot) => {
-      const upload = byHash.get(hashUploadToken(slot.token))!;
-      return {
-        _id: new Types.ObjectId(),
-        registrationId,
-        submissionVersion: 1,
-        type: slot.type,
-        owner: slot.owner,
-        storageKey: upload.storageKey,
-        fileName: upload.fileName,
-        mimeType: upload.mimeType,
-        size: upload.size,
-        sha256: upload.sha256,
-        uploadedAt: upload.createdAt,
-      };
-    });
-    await RegistrationDocument.insertMany(docs, { session });
-    const docId = (field: string) => docs[slots.findIndex((s) => s.field === field)]?._id ?? null;
+    const docId = await saveSubmissionFiles(session, registrationId, 1, slots, (slot) => uploadAsFile(byHash.get(hashUploadToken(slot.token))!));
 
     // 2. Mark the uploads as used; if someone else used one meanwhile, nothing is saved.
-    const claim = await PendingUpload.updateMany(
-      { tokenHash: { $in: hashes }, claimedBy: null },
-      { $set: { claimedBy: registrationId } },
-      { session },
-    );
-    if (claim.modifiedCount !== hashes.length) {
-      throw new AppError(409, 'Some files were already used in another submission. Please upload them again.', 'upload_conflict');
-    }
+    await claimUploads(session, hashes, registrationId);
 
     // 3. The application itself.
     await Registration.create(
@@ -261,6 +313,7 @@ export async function submitRegistration(data: RegistrationData, ctx: RequestCon
             expiresAt: new Date(now.getTime() + settings.pendingVerificationRetentionDays * 86_400_000),
           },
           submittedAt: now,
+          lastSubmittedAt: now,
         },
       ],
       { session },
@@ -274,32 +327,7 @@ export async function submitRegistration(data: RegistrationData, ctx: RequestCon
           version: 1,
           submittedAt: now,
           ip: ctx.ip,
-          data: {
-            franchiseModel: data.franchiseModel,
-            firmType: data.firmType,
-            firmName: data.firmName,
-            pan: data.pan,
-            gst: data.gst,
-            panDocumentId: docId('panFile'),
-            gstDocumentId: docId('gstFile'),
-            rentalDocumentId: docId('rentalFile'),
-            signatory: {
-              name: data.signatory.name,
-              capacity: data.signatory.capacity,
-              email: data.signatory.email,
-              mobile: data.signatory.mobile,
-              idProofDocumentId: docId('signatory.idProofFile'),
-              photoDocumentId: docId('signatory.photoFile'),
-            },
-            contacts: data.contacts.map((c, i) => ({
-              name: c.name,
-              email: c.email,
-              mobile: c.mobile,
-              idProofDocumentId: docId(`contacts.${i}.idProofFile`),
-              photoDocumentId: docId(`contacts.${i}.photoFile`),
-            })),
-            agreementVersionId: data.agreement.agreementVersionId,
-          },
+          data: snapshotOf(data, docId),
         },
       ],
       { session },

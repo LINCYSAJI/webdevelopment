@@ -846,6 +846,9 @@ These are defaults the team will follow unless the product owner says otherwise.
 | A15 | The **Application ID** format is `APP-YYYY-NNNN` (for example `APP-2026-0001`), numbered per calendar year |
 | A16 | Both verification codes are sent automatically when the verification page opens. "Resend" allows up to 6 codes per hour for each of email and mobile (the first plus 5 resends) |
 | A17 | When a Franchise User changes their login email or mobile, the current application details are updated too. Earlier submission versions keep the details as they were, and a security notice is emailed to the old address |
+| A18 | **Overdue** means waiting **more than** the "first reminder after" number of business days in Settings (default 2), counted from when the application entered its current stage. Weekends and Admin holidays don't count |
+| A19 | **Edit & Resubmit:** unchanged documents are kept automatically; only replaced files are uploaded again. The duplicate check runs again on every resubmission, but only **new** email/mobile matches raise a warning and flag (matches already reviewed by Admin are not raised again) |
+| A20 | Accounts users see the full Pending Accounts queue (others' applications read-only) plus everything they reviewed before. The Admin "Reassign" button on the registrations screen arrives with step 7; the reassign function already works and is used when deactivating an Accounts user |
 
 ### 18.2 Open questions for the product owner
 

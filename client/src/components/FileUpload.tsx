@@ -38,10 +38,12 @@ interface FileUploadProps {
   disabled?: boolean;
   /** Field path, used to scroll to the first error. */
   name?: string;
+  /** Where the file is sent; defaults to the public registration upload. */
+  upload?: (kind: UploadKind, file: File) => Promise<UploadedFileView>;
 }
 
 /** Uploads a file as soon as it is chosen, then shows a preview with Replace / Remove. */
-export function FileUpload({ label, kind, limits, value, onChange, required, error, disabled, name }: FileUploadProps) {
+export function FileUpload({ label, kind, limits, value, onChange, required, error, disabled, name, upload = uploadRegistrationFile }: FileUploadProps) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -68,7 +70,7 @@ export function FileUpload({ label, kind, limits, value, onChange, required, err
 
     setUploading(true);
     try {
-      const uploaded = await uploadRegistrationFile(kind, file);
+      const uploaded = await upload(kind, file);
       const previewUrl = uploaded.mimeType.startsWith('image/') ? URL.createObjectURL(file) : null;
       onChange({ ...uploaded, previewUrl });
     } catch (err) {

@@ -1,4 +1,5 @@
 import type {
+  ReassignInput,
   AdminUserView,
   AgreementDraftInput,
   AgreementVersionView,
@@ -99,3 +100,11 @@ export const activateAgreement = (id: string) =>
 
 export const deactivateAgreement = (id: string) =>
   api<VersionResponse>(`/admin/agreements/${id}/deactivate`, { method: 'POST' }).then((r) => r.version);
+
+// ---------- Reassigning Accounts reviewers (PRD AD2, AD8) ----------
+
+export const moveAssignments = (fromUserId: string, input: ReassignInput) =>
+  api<{ moved: number }>(`/admin/users/accounts/${fromUserId}/move-assignments`, { method: 'POST', json: input }).then((r) => r.moved);
+
+export const reassignRegistration = (registrationId: string, input: ReassignInput) =>
+  api<{ ok: true }>(`/admin/registrations/${registrationId}/reassign`, { method: 'POST', json: input });

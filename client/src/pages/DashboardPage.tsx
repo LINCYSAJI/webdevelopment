@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ROLE_LABELS } from '@fap/shared';
 import { useAuth } from '../auth/AuthContext';
 import { NAVIGATION } from '../navigation';
+import { AccountsDashboardPage } from './accounts/AccountsDashboardPage';
 import { FranchiseDashboardPage } from './franchise/FranchiseDashboardPage';
 
 const ROLE_INTRO = {
@@ -15,6 +16,7 @@ export function DashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
   if (user.role === 'franchise_user') return <FranchiseDashboardPage />;
+  if (user.role === 'accounts') return <AccountsDashboardPage />;
   const screens = NAVIGATION[user.role].filter((i) => i.path !== '/app');
 
   return (

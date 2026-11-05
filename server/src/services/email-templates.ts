@@ -117,3 +117,72 @@ export function contactChangedEmail(name: string, what: 'email address' | 'mobil
     'If you did not make this change, please contact us immediately.',
   ]);
 }
+
+// ---------- Review workflow emails (PRD §11, N4–N7, N10) ----------
+
+/** N4: an application was reassigned to this Accounts user. */
+export function applicationAssignedEmail(name: string, applicationId: string, firmName: string, note: string, url: string) {
+  return layout(
+    `Application assigned to you: ${applicationId}`,
+    [`Hello ${name},`, `Application ${applicationId} (${firmName}) has been assigned to you for Accounts review.`, ...(note ? [`Note from Admin: ${note}`] : [])],
+    { label: 'Open the application', url },
+  );
+}
+
+/** N5 to the applicant. */
+export function accountsApprovedApplicantEmail(name: string, applicationId: string, url: string) {
+  return layout(
+    `Accounts approved – now with our Manager: ${applicationId}`,
+    [`Hello ${name},`, `Good news: our Accounts team has approved your application ${applicationId}.`, 'It is now with our Manager for final approval. We will email you again once a decision is made.'],
+    { label: 'View my application', url },
+  );
+}
+
+/** N5 to Managers and Admin. */
+export function awaitingManagerEmail(name: string, applicationId: string, firmName: string, url: string, forAdmin: boolean) {
+  return layout(
+    forAdmin ? `Accounts approved: ${applicationId}` : `Application waiting for final approval: ${applicationId}`,
+    [`Hello ${name},`, `Application ${applicationId} (${firmName}) has been approved by Accounts and is ${forAdmin ? 'now with the Manager' : 'waiting for your final approval'}.`],
+    { label: 'Open the portal', url },
+  );
+}
+
+/** N6 / N9 to the applicant: the rejection reason plus how to resubmit. */
+export function correctionRequestedEmail(name: string, applicationId: string, stage: 'Accounts' | 'Manager', reason: string, url: string) {
+  return layout(
+    `Correction requested: ${applicationId}`,
+    [
+      `Hello ${name},`,
+      `Our ${stage === 'Accounts' ? 'Accounts team' : 'Manager'} has reviewed your application ${applicationId} and asked for some changes:`,
+      reason,
+      'To resubmit: log in, open your dashboard, click "Edit & Resubmit", make the changes, tick the agreement checkbox again and press Resubmit.',
+    ],
+    { label: 'Edit & Resubmit', url },
+  );
+}
+
+/** N6 / N9 to Admin. */
+export function rejectedAdminEmail(name: string, applicationId: string, firmName: string, stage: 'Accounts' | 'Manager', reason: string, url: string) {
+  return layout(`Rejected by ${stage}: ${applicationId}`, [`Hello ${name},`, `Application ${applicationId} (${firmName}) was rejected by ${stage}.`, `Reason: ${reason}`], {
+    label: 'Open the portal',
+    url,
+  });
+}
+
+/** N7 / N10 confirmation to the applicant. */
+export function resubmittedApplicantEmail(name: string, applicationId: string, stage: 'Accounts' | 'Manager', url: string) {
+  return layout(
+    `Application resubmitted: ${applicationId}`,
+    [`Hello ${name},`, `Thank you. Your corrected application ${applicationId} has been resubmitted and is back with our ${stage === 'Accounts' ? 'Accounts team' : 'Manager'} for review.`],
+    { label: 'View my application', url },
+  );
+}
+
+/** N7 / N10 to reviewers and Admin. */
+export function resubmittedStaffEmail(name: string, applicationId: string, firmName: string, stage: 'Accounts' | 'Manager', url: string) {
+  return layout(
+    `Application resubmitted: ${applicationId}`,
+    [`Hello ${name},`, `Application ${applicationId} (${firmName}) has been corrected and resubmitted. It is waiting for ${stage} review.`],
+    { label: 'Open the portal', url },
+  );
+}

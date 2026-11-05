@@ -29,6 +29,7 @@ export function UsersPage({ role }: { role: ManagedRole }) {
   const [editing, setEditing] = useState<AdminUserView | 'new' | null>(null);
   const [confirming, setConfirming] = useState<AdminUserView | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [handover, setHandover] = useState<{ user: AdminUserView; count: number } | null>(null);
 
   const load = useCallback(() => {
     adminApi
@@ -56,7 +57,12 @@ export function UsersPage({ role }: { role: ManagedRole }) {
       setNotice({ tone: 'success', text: `${u.name} has been ${u.isActive ? 'deactivated and logged out' : 'reactivated'}.` });
       load();
     } catch (err) {
-      setNotice({ tone: 'error', text: err instanceof ApiError ? err.message : 'Action failed.' });
+      // An Accounts user still reviewing applications must hand them over first (PRD AD8).
+      if (err instanceof ApiError && err.code === 'has_assignments') {
+        setHandover({ user: u, count: Number(err.details.assignedCount) || 0 });
+      } else {
+        setNotice({ tone: 'error', text: err instanceof ApiError ? err.message : 'Action failed.' });
+      }
     } finally {
       setBusyId(null);
     }
@@ -198,6 +204,20 @@ export function UsersPage({ role }: { role: ManagedRole }) {
         />
       )}
 
+      {handover && (
+        <HandoverModal
+          user={handover.user}
+          count={handover.count}
+          others={(users ?? []).filter((x) => x.isActive && x.id !== handover.user.id)}
+          onClose={() => setHandover(null)}
+          onDone={(message) => {
+            setHandover(null);
+            setNotice({ tone: 'success', text: message });
+            load();
+          }}
+        />
+      )}
+
       {confirming && (
         <Modal
           title={`Deactivate ${confirming.name}?`}
@@ -302,6 +322,80 @@ function UserFormModal({
           {(p) => <input {...p} inputMode="numeric" maxLength={10} className="input" value={form.mobile} onChange={set('mobile')} />}
         </Field>
         <p className="text-xs text-slate-500">Role: {singular} (fixed for this screen).</p>
+      </form>
+    </Modal>
+  );
+}
+
+/** PRD AD8: move an Accounts user's applications to someone else (or Unassigned), then deactivate them. */
+function HandoverModal({
+  user,
+  count,
+  others,
+  onClose,
+  onDone,
+}: {
+  user: AdminUserView;
+  count: number;
+  others: AdminUserView[];
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [toUserId, setToUserId] = useState('');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const moved = await adminApi.moveAssignments(user.id, { toUserId: toUserId || null, note });
+      await adminApi.setUserActive('accounts', user.id, false);
+      const target = others.find((o) => o.id === toUserId)?.name ?? 'the Unassigned queue';
+      onDone(`${moved} application${moved === 1 ? '' : 's'} moved to ${target}. ${user.name} has been deactivated and logged out.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={`Hand over ${user.name}'s applications`}
+      onClose={onClose}
+      footer={
+        <>
+          <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+          <button className="btn-danger" form="handover-form" type="submit" disabled={busy}>
+            {busy ? 'Moving…' : 'Move and deactivate'}
+          </button>
+        </>
+      }
+    >
+      <form id="handover-form" onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-slate-700">
+          {user.name} is reviewing <strong>{count}</strong> application{count === 1 ? '' : 's'}. Choose who should take {count === 1 ? 'it' : 'them'} over before they are deactivated.
+        </p>
+        <div>
+          <label htmlFor="handover-to" className="label">Move to</label>
+          <select id="handover-to" className="input" value={toUserId} onChange={(e) => setToUserId(e.target.value)}>
+            <option value="">Unassigned queue (any Accounts user can pick up)</option>
+            {others.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="handover-note" className="label">Note (optional)</label>
+          <textarea id="handover-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+          <p className="mt-1 text-xs text-slate-500">Included in the email to the new reviewer and in the log.</p>
+        </div>
+        {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>
   );

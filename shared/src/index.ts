@@ -6,3 +6,4 @@ export * from './agreement';
 export * from './admin';
 export * from './registration';
 export * from './franchise';
+export * from './workflow';
