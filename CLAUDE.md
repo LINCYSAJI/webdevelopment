@@ -53,6 +53,22 @@ Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`):
 - **Never push directly to `production`.** It is updated only by merging `development` after a proper code review (a reviewed pull request).
 - The rule is enforced locally by `.githooks/pre-push` (enable once per clone with `git config core.hooksPath .githooks`) and must also be enforced on the hosting service with branch protection on `production` (pull request + approving review required, direct pushes blocked).
 
+## Project board (mandatory)
+
+The owner tracks the project on a board artifact: https://claude.ai/artifact/PMfkGD7WtUiVsceFvtMRXD (source: `docs/project-board.html`).
+
+- **Run the `project-board` skill (`.claude/skills/project-board/SKILL.md`) without being asked:**
+  - after finishing each build phase or feature;
+  - after committing a phase's work;
+  - before ending any session that changed code.
+  - Also run it whenever the owner asks about progress or status.
+- The skill does four things:
+  - commits all outstanding work on `development` up to that point;
+  - checks development against production, the remote and the test results;
+  - updates the board's data block;
+  - republishes the board to the **same** link, then commits the board.
+- Never create a second board artifact. Never commit to or push `production` while doing this.
+
 ## Build progress
 
 1. ✅ **Foundation:** project setup, local DB, migrations, secure login/refresh/logout, lockout, audit log, branding, role menus with placeholders

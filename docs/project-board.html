@@ -1,0 +1,734 @@
+<title>Franchise Portal Project Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky top bar with view tabs → filter row → status board (5 columns) or phase lanes. Indigo ink from the portal's default brand colour. */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #eef0f7;
+  --line: #dcdfeb;
+  --ink: #161a2e;
+  --ink-2: #4a5070;
+  --ink-3: #7a809c;
+  --accent: #23379a;
+  --accent-soft: #e4e8fb;
+  --st-planned: #7c6bb8;
+  --st-planned-bg: #efecf9;
+  --st-notstarted: #6b7290;
+  --st-notstarted-bg: #eceef4;
+  --st-dev: #1f6fd1;
+  --st-dev-bg: #e3eefc;
+  --st-test: #b26a00;
+  --st-test-bg: #fdf0da;
+  --st-done: #1d8a4e;
+  --st-done-bg: #e0f4e8;
+  --wait: #b4232a;
+  --wait-bg: #fde7e8;
+  --font-ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1220; --surface: #171b2e; --surface-2: #1e2339; --line: #2c3250; --ink: #e8eaf6; --ink-2: #b2b7d4; --ink-3: #868cab;
+    --accent: #8ea2ff; --accent-soft: #232b55;
+    --st-planned: #b3a5f0; --st-planned-bg: #2a2546; --st-notstarted: #a3a9c6; --st-notstarted-bg: #252a40;
+    --st-dev: #79b0ff; --st-dev-bg: #1b2c4a; --st-test: #f2b65a; --st-test-bg: #3a2c14; --st-done: #6fd39b; --st-done-bg: #173525;
+    --wait: #ff8a8f; --wait-bg: #3d1c22; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1220; --surface: #171b2e; --surface-2: #1e2339; --line: #2c3250; --ink: #e8eaf6; --ink-2: #b2b7d4; --ink-3: #868cab;
+  --accent: #8ea2ff; --accent-soft: #232b55;
+  --st-planned: #b3a5f0; --st-planned-bg: #2a2546; --st-notstarted: #a3a9c6; --st-notstarted-bg: #252a40;
+  --st-dev: #79b0ff; --st-dev-bg: #1b2c4a; --st-test: #f2b65a; --st-test-bg: #3a2c14; --st-done: #6fd39b; --st-done-bg: #173525;
+  --wait: #ff8a8f; --wait-bg: #3d1c22; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+
+/* Top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-block: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+.brand b { font-size: 15px; display: block; }
+.brand span { font-size: 12px; color: var(--ink-3); }
+.tabs { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; }
+.tab { font: inherit; font-weight: 600; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 7px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.tab:hover { background: var(--surface-2); }
+.tab[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main { padding-block: 24px 48px; }
+.view { display: grid; gap: 24px; }
+.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+.muted { color: var(--ink-2); }
+.small { font-size: 12px; }
+code, .mono { font-family: var(--font-mono); font-size: 12px; }
+
+/* Overview */
+.hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; }
+.hero h1 { font-size: clamp(22px, 3vw, 30px); line-height: 1.2; letter-spacing: -.01em; }
+.hero p { max-width: 65ch; }
+.progress-ring { display: flex; align-items: center; gap: 16px; }
+.ring { --p: 0; width: 92px; height: 92px; border-radius: 50%; background: conic-gradient(var(--st-done) calc(var(--p) * 1%), var(--surface-2) 0); display: grid; place-items: center; flex-shrink: 0; }
+.ring::after { content: attr(data-label); width: 70px; height: 70px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
+.stat { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.stat b { font-size: 22px; display: block; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--ink-2); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.list { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.flow .node { padding: 5px 10px; border-radius: 999px; background: var(--surface-2); font-weight: 600; font-size: 12px; }
+.flow .node.end { background: var(--st-done-bg); color: var(--st-done); }
+.flow .node.side { background: var(--wait-bg); color: var(--wait); }
+.flow .arr { color: var(--ink-3); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin-top: 8px; }
+.kv dt { color: var(--ink-3); font-size: 12px; padding-top: 1px; }
+.kv dd { margin: 0; min-width: 0; }
+
+/* Phase timeline */
+.phases { display: grid; gap: 8px; margin-top: 10px; }
+.phase-row { display: grid; grid-template-columns: 54px minmax(0, 1fr) 150px 110px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.phase-row:hover { outline: 1px solid var(--accent); }
+.phase-no { font-family: var(--font-mono); font-weight: 600; color: var(--accent); }
+.phase-row h3 { font-size: 14px; }
+.phase-row p { margin: 0; font-size: 12px; color: var(--ink-2); }
+.bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--st-done); border-radius: 99px; }
+.bar-label { font-size: 11px; color: var(--ink-3); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* Pills */
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.s-planned { color: var(--st-planned); background: var(--st-planned-bg); }
+.s-notstarted { color: var(--st-notstarted); background: var(--st-notstarted-bg); }
+.s-dev { color: var(--st-dev); background: var(--st-dev-bg); }
+.s-test { color: var(--st-test); background: var(--st-test-bg); }
+.s-done { color: var(--st-done); background: var(--st-done-bg); }
+.wait-pill { color: var(--wait); background: var(--wait-bg); }
+
+/* Filters */
+.filters { display: grid; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filter-row label { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+select, input[type="search"] { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); min-width: 0; }
+input[type="search"] { width: min(260px, 100%); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 0; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+
+/* Board */
+.board-scroll { overflow-x: auto; padding-bottom: 6px; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; min-width: 1240px; }
+.col { background: var(--surface-2); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 6px; }
+.col-head h2 { font-size: 13px; }
+.col-head .count { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+.col-hint { font-size: 11px; color: var(--ink-3); padding: 0 4px; margin-top: -6px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; display: grid; gap: 6px; border-left: 3px solid var(--line); }
+.card[data-s="planned"] { border-left-color: var(--st-planned); }
+.card[data-s="notstarted"] { border-left-color: var(--st-notstarted); }
+.card[data-s="dev"] { border-left-color: var(--st-dev); }
+.card[data-s="test"] { border-left-color: var(--st-test); }
+.card[data-s="done"] { border-left-color: var(--st-done); }
+.card h3 { font-size: 13px; line-height: 1.35; }
+.card p { margin: 0; font-size: 12px; color: var(--ink-2); }
+.meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 5px; background: var(--surface-2); color: var(--ink-2); font-weight: 600; }
+.tag.phase { background: var(--accent-soft); color: var(--accent); font-family: var(--font-mono); }
+.ref { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.empty { font-size: 12px; color: var(--ink-3); padding: 14px 6px; text-align: center; border: 1px dashed var(--line); border-radius: 8px; }
+
+/* Lanes */
+.lanes { display: grid; gap: 14px; }
+.lane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; }
+.lane-head h2 { font-size: 15px; }
+.lane-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+
+/* Tables */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--ink-2); }
+.legend div { display: flex; gap: 6px; align-items: baseline; }
+
+@media (max-width: 900px) {
+  .hero, .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .phase-row { grid-template-columns: 44px minmax(0, 1fr); }
+  .phase-row .bar-wrap, .phase-row .pill { grid-column: 2; justify-self: start; }
+  .phase-row .bar-wrap { width: 100%; }
+  .tabs { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) { .card, .phase-row { transition: transform .12s ease; } .card:hover { transform: translateY(-1px); } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">FA</div>
+      <div><b>Franchise Online Agreement Portal</b><span id="updated">Project board</span></div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a class="tab" href="#overview" data-view="overview">Overview</a>
+      <a class="tab" href="#board" data-view="board">Board</a>
+      <a class="tab" href="#screens" data-view="screens">Screens</a>
+      <a class="tab" href="#decisions" data-view="decisions">Your decisions</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ============ OVERVIEW ============ -->
+  <section class="view" id="view-overview">
+    <div class="hero">
+      <div class="panel">
+        <div class="eyebrow">The product</div>
+        <h1>Franchise partners register online, accept the agreement, and get a signed-off PDF after two approvals.</h1>
+        <p class="muted">Applicants fill one form, verify their email and mobile with one-time codes, and accept the active franchise agreement. Accounts reviews first, then a Manager gives final approval. Approval assigns an agreement reference number (<span class="mono">FRN/YYYY/NNNN</span>) and generates the agreement PDF automatically. Only a Manager can open it and email it to the franchisee. There are no fees or payments anywhere in the portal.</p>
+        <div class="flow" aria-label="Application status flow">
+          <span class="node">Pending Verification</span><span class="arr">→</span>
+          <span class="node">Pending Accounts</span><span class="arr">→</span>
+          <span class="node">Pending Manager</span><span class="arr">→</span>
+          <span class="node end">Approved + PDF</span>
+        </div>
+        <div class="flow">
+          <span class="node side">Rejected by Accounts</span><span class="arr">→ resubmit → Pending Accounts</span>
+        </div>
+        <div class="flow">
+          <span class="node side">Rejected by Manager</span><span class="arr">→ resubmit → straight to Pending Manager</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Progress</div>
+        <div class="progress-ring" style="margin-top:10px">
+          <div class="ring" id="ring" data-label="0%"></div>
+          <div>
+            <b id="ring-text" style="font-size:15px"></b>
+            <div class="muted small" id="ring-sub"></div>
+          </div>
+        </div>
+        <div class="stats" id="stats"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow">Phases</div>
+      <p class="muted small" style="margin:4px 0 0">Click a phase to open its cards on the board.</p>
+      <div class="phases" id="phase-list"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div class="eyebrow">Code &amp; branches</div>
+        <dl class="kv" id="git-kv"></dl>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Recent commits on development</div>
+        <div class="table-scroll" style="margin-top:8px"><table id="commits-table"></table></div>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="panel">
+        <div class="eyebrow">Who uses it</div>
+        <dl class="kv">
+          <dt>Franchise Partner</dt><dd>Registers, verifies, tracks the application, edits and resubmits when changes are asked for, manages their profile and can request deletion of their data.</dd>
+          <dt>Accounts</dt><dd>First review: picks up applications, approves or rejects with a reason.</dd>
+          <dt>Manager</dt><dd>Final approval; the only role that can open, download and email the agreement PDF.</dd>
+          <dt>Admin</dt><dd>Oversight of everything: users, agreement content, settings, duplicates, exports, audit log and data deletion requests. Cannot approve or reject.</dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">How it's built</div>
+        <dl class="kv">
+          <dt>Website</dt><dd>React + TypeScript, works from 360 px phones up</dd>
+          <dt>Server</dt><dd>Node.js + Express + TypeScript</dd>
+          <dt>Database</dt><dd>MongoDB (local for development, Atlas for live)</dd>
+          <dt>Files</dt><dd>Private storage, opened only after a permission check</dd>
+          <dt>PDF</dt><dd>Generated on the server at final approval</dd>
+          <dt>Email / SMS</dt><dd>Test mailbox now; real providers chosen in phase 9</dd>
+          <dt>Code</dt><dd><span class="mono">development</span> branch; <span class="mono">production</span> only via reviewed merge</dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Built-in safeguards</div>
+        <ul class="list small">
+          <li>Every permission is checked on the server, and tests prove each role is refused what it must not see.</li>
+          <li>Two people clicking at once can never both approve, pick up or decide.</li>
+          <li>One registration per PAN and per GST, enforced by the database.</li>
+          <li>Every submission version, acceptance and decision is kept permanently.</li>
+          <li>Append-only audit log of important actions.</li>
+          <li>Locked accounts after repeated wrong passwords; codes are stored only in protected form.</li>
+          <li>DPDP Act consent records and a data deletion process.</li>
+          <li>Exact footer on every PDF page: "This is a computer-generated digital agreement and does not require any physical or digital signature."</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BOARD ============ -->
+  <section class="view" id="view-board" hidden>
+    <div class="panel filters">
+      <div class="filter-row" style="justify-content:space-between">
+        <div class="eyebrow">Filter by phase</div>
+        <div class="seg" role="group" aria-label="Board layout">
+          <button type="button" id="layout-status" aria-pressed="true">By status</button>
+          <button type="button" id="layout-phase" aria-pressed="false">By phase</button>
+        </div>
+      </div>
+      <div class="chips" id="phase-chips"></div>
+      <div class="filter-row">
+        <label for="area-filter">Area</label>
+        <select id="area-filter"></select>
+        <label for="search">Search</label>
+        <input type="search" id="search" placeholder="Card title, screen code…">
+        <label class="check"><input type="checkbox" id="wait-only"> Waiting on you only</label>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div id="board-host"></div>
+  </section>
+
+  <!-- ============ SCREENS ============ -->
+  <section class="view" id="view-screens" hidden>
+    <div class="panel">
+      <div class="eyebrow">Every screen in the portal</div>
+      <p class="muted small" style="margin:4px 0 12px">Codes match PRD.md section 7. Status shows where each screen is in the plan.</p>
+      <div class="chips" id="screen-role-chips" style="margin-bottom:12px"></div>
+      <div class="table-scroll"><table id="screens-table"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ DECISIONS ============ -->
+  <section class="view" id="view-decisions" hidden>
+    <div class="grid2">
+      <div class="panel">
+        <div class="eyebrow">Things only you can do</div>
+        <div class="table-scroll" style="margin-top:8px"><table id="actions-table"></table></div>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Open questions (PRD §18.2)</div>
+        <p class="muted small" style="margin:4px 0 8px">The portal is built with the default answer. Tell me if you want a different one.</p>
+        <div class="table-scroll"><table id="questions-table"></table></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">Defaults I chose that you should confirm</div>
+      <div class="table-scroll" style="margin-top:8px"><table id="defaults-table"></table></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// =====================================================================================
+// BOARD DATA START — maintained by the project-board skill (.claude/skills/project-board).
+// Edit only between the START and END markers. Everything below END is the page's code.
+// =====================================================================================
+const SYNC = {
+  date: '2026-11-05',
+  developmentHead: '0242a31',
+  developmentCommits: 15,
+  productionHead: '7c3cc7f',
+  productionLabel: 'Initial commit: steps 1-4',
+  aheadOfProduction: 14,
+  remote: null,
+  pushed: false,
+  tests: { suites: 7, passing: true, atCommit: '0242a31' },
+  uncommittedAtSync: 0,
+  headline: 'Phase 7 ready for your test · Phase 8 next',
+};
+const COMMITS = [
+  ['0242a31', '2026-11-05', 'Step 7: Admin oversight, duplicate review, tracking and exports'],
+  ['c63f653', '2026-11-05', 'Legal compliance: Privacy Policy, Terms, consent and Delete my account'],
+  ['4b54bfd', '2026-11-05', 'Step 6: Manager review, automatic agreement PDF, send and resend'],
+  ['886e543', '2026-11-04', 'Step 5: Accounts review, Edit & Resubmit, reviewer handover'],
+  ['06e6558', '2026-11-04', 'Cut database round trips on the verification page'],
+  ['04c9665', '2026-11-04', 'Share file and duplicate-key helpers instead of copying them'],
+  ['7c3cc7f', '2026-11-04', 'Initial commit: steps 1-4 of the Franchise Online Agreement Portal'],
+];
+const STATUSES = [
+  { key: 'planned', label: 'Planned', hint: 'Scoped for a later phase' },
+  { key: 'notstarted', label: 'Not started', hint: 'Next up; work has not begun' },
+  { key: 'dev', label: 'In development', hint: 'Being built now' },
+  { key: 'test', label: 'Ready for test', hint: 'Built and passing automated tests; waiting for your click-through or review' },
+  { key: 'done', label: 'Completed', hint: 'Built, automated tests passing, committed to development' },
+];
+const STATUS = Object.fromEntries(STATUSES.map((s) => [s.key, s]));
+
+const PHASES = [
+  { id: '1', name: 'Foundation', summary: 'Project setup, local database, secure login, audit log, branding, role menus' },
+  { id: '2', name: 'Admin tools', summary: 'Users, passwords, settings and holidays, audit log screen, agreement content' },
+  { id: '3', name: 'Public registration', summary: 'Five-section form, secure uploads, duplicate rules, agreement acceptance' },
+  { id: '4', name: 'Verification & applicant screens', summary: 'Email and SMS codes, account creation, dashboard, my application, profile' },
+  { id: '5', name: 'Accounts review & resubmission', summary: 'Queues, pick up, approve or reject, edit and resubmit, reviewer handover' },
+  { id: '6', name: 'Manager review & agreement PDF', summary: 'Final approval, reference number, automatic PDF, send and resend' },
+  { id: 'L', name: 'Legal compliance (India)', summary: 'Privacy Policy, Terms, consent, footer links, delete my account' },
+  { id: '7', name: 'Admin oversight', summary: 'Dashboard, all registrations, duplicate review, tracking, exports' },
+  { id: '8', name: 'Notifications & reminders', summary: 'Daily scheduled job, business-day reminders, escalations, clean-ups' },
+  { id: '9', name: 'Acceptance testing & go-live', summary: 'PRD checklist, live database, storage, email and SMS providers, launch' },
+];
+const PHASE = Object.fromEntries(PHASES.map((p) => [p.id, p]));
+const phaseLabel = (id) => (id === 'L' ? 'Legal' : `Phase ${id}`);
+
+// t: title, p: phase, s: status, a: area, d: description, r: PRD reference, w: waiting on the owner
+const CARDS = [
+  // Phase 1
+  { t: 'Project setup and local database', p: '1', s: 'done', a: 'Infrastructure', d: 'Website, server and shared rules in one project; local database with one command; database changes through migrations.', r: 'D14' },
+  { t: 'Secure login, refresh and logout', p: '1', s: 'done', a: 'Security', d: 'Hashed passwords, secure cookies with session rotation, lockout after repeated wrong passwords, rate limiting.', r: '§13' },
+  { t: 'Append-only audit log', p: '1', s: 'done', a: 'Security', d: 'Important actions recorded permanently; rows can never be changed or deleted.', r: 'AD10' },
+  { t: 'Branding from Settings', p: '1', s: 'done', a: 'Screen', d: 'Logo, colours, organisation and portal name, support contact; nothing hard-coded.', r: '§14' },
+  { t: 'Role menus and login page', p: '1', s: 'done', a: 'Screen', d: 'Each role sees only its own menu; P1 login with email, username or mobile.', r: 'P1, §7' },
+  // Phase 2
+  { t: 'Accounts and Manager user management', p: '2', s: 'done', a: 'Screen', d: 'Admin creates, edits, deactivates and reactivates staff; emailed set-password links.', r: 'AD8, AD9, N15' },
+  { t: 'Forgot and reset password', p: '2', s: 'done', a: 'Security', d: 'Time-limited emailed reset link for every role.', r: 'P6' },
+  { t: 'Settings and public holidays', p: '2', s: 'done', a: 'Screen', d: 'Branding, code expiry, reminder intervals, file size limits, session timeout, holiday calendar.', r: 'AD11, §14' },
+  { t: 'Audit Log screen', p: '2', s: 'done', a: 'Screen', d: 'Search and filter every recorded action by date, action and user.', r: 'AD10' },
+  { t: 'Agreement content: PDF upload or typed text', p: '2', s: 'done', a: 'Screen', d: 'Upload a PDF (default) or type with merge fields; preview, draft, publish, deactivate; one active version.', r: 'AD7, D15' },
+  { t: 'Test mailbox for development', p: '2', s: 'done', a: 'Infrastructure', d: 'Every email and SMS is captured for testing; refused in the live system.', r: '' },
+  // Phase 3
+  { t: 'Five-section registration form', p: '3', s: 'done', a: 'Screen', d: 'Live validation (PAN, GST-to-PAN, mobile), unlimited contacts, "Same as Signatory", browser autosave.', r: 'P2, §8' },
+  { t: 'Secure document uploads', p: '3', s: 'done', a: 'Security', d: 'Files checked by content not name, size limits from Settings, private storage.', r: '§8.6' },
+  { t: 'Duplicate rules', p: '3', s: 'done', a: 'Workflow', d: 'Same PAN or GST blocked; existing account told to log in; shared email or mobile raises a flag for Admin.', r: '§10.1' },
+  { t: 'Agreement acceptance record', p: '3', s: 'done', a: 'Data', d: 'Version, date, time and an exact snapshot saved with every submission.', r: '§10.4' },
+  // Phase 4
+  { t: 'Email and SMS code verification', p: '4', s: 'done', a: 'Security', d: '6-digit codes with expiry, resend cooldown, attempt limits; account created only after both verify.', r: 'P3, §10.3' },
+  { t: 'Set password and Application ID', p: '4', s: 'done', a: 'Workflow', d: 'Creates the franchise login, assigns APP-YYYY-NNNN, sends N2 emails.', r: 'P4, P5, N2' },
+  { t: 'Franchise Dashboard', p: '4', s: 'done', a: 'Screen', d: 'Status, progress steps and what to do next.', r: 'F1' },
+  { t: 'My Application', p: '4', s: 'done', a: 'Screen', d: 'All details, documents, every version and the history.', r: 'F2' },
+  { t: 'My Profile', p: '4', s: 'done', a: 'Screen', d: 'Change password; change login email or mobile with a code.', r: 'F4' },
+  // Phase 5
+  { t: 'Accounts dashboard and queues', p: '5', s: 'done', a: 'Screen', d: 'Unassigned, Assigned to Me, All Pending; search, filters, business days waiting.', r: 'A1, A2' },
+  { t: 'Pick up, approve, reject', p: '5', s: 'done', a: 'Workflow', d: 'Only the assignee decides; reason required; two people can’t pick up the same one.', r: 'A3' },
+  { t: 'Changes since last review', p: '5', s: 'done', a: 'Screen', d: 'Highlights every field and document changed in a resubmission.', r: 'A3' },
+  { t: 'My Reviewed Applications', p: '5', s: 'done', a: 'Screen', d: 'Everything an Accounts user approved or rejected.', r: 'A4' },
+  { t: 'Edit and Resubmit', p: '5', s: 'done', a: 'Screen', d: 'Keep or replace documents; back to the same reviewer, or straight to the Manager.', r: 'F3' },
+  { t: 'Reviewer handover', p: '5', s: 'done', a: 'Workflow', d: 'Accounts users with applications must hand them over before deactivation.', r: 'AD8' },
+  { t: 'Review notifications', p: '5', s: 'done', a: 'Notification', d: 'Assignment, approval, rejection and resubmission emails.', r: 'N4–N7, N10' },
+  // Phase 6
+  { t: 'Manager dashboard and lists', p: '6', s: 'done', a: 'Screen', d: 'Pending, Approved, Rejected, with who approved at Accounts.', r: 'M1, M2, M4' },
+  { t: 'Final approval with reference number', p: '6', s: 'done', a: 'Workflow', d: 'FRN/YYYY/NNNN assigned once, never skipped or repeated.', r: 'M3, §10.5' },
+  { t: 'Automatic agreement PDF', p: '6', s: 'done', a: 'Data', d: 'Details pages, the accepted agreement, acceptance record, exact footer and page numbers on every page.', r: '§9' },
+  { t: 'Generated Agreements: view, download, send', p: '6', s: 'done', a: 'Screen', d: 'Send / resend to the registered email, email history, retry if generation failed.', r: 'M5, N11, N12' },
+  { t: 'PDF access is Manager-only', p: '6', s: 'done', a: 'Security', d: 'Accounts, applicants, Admin and visitors refused, even with a direct link.', r: 'Rule 4' },
+  { t: 'Check a real generated PDF', p: '6', s: 'test', a: 'Review', d: 'Approve a test application and read the PDF: layout, wording, logo, footer.', r: '§9.2', w: true },
+  // Legal
+  { t: 'Privacy Policy (DPDP Act 2023)', p: 'L', s: 'done', a: 'Legal', d: 'Notice covering data collected, purposes, sharing, retention, rights and grievance officer.', r: 'D16' },
+  { t: 'Terms & Conditions', p: 'L', s: 'done', a: 'Legal', d: 'Eligibility, electronic agreement validity, acceptable use, Indian law.', r: 'D16' },
+  { t: 'Consent checkbox and consent records', p: 'L', s: 'done', a: 'Legal', d: 'Mandatory on register and resubmit; versions, wording, time and device stored.', r: '§8.5' },
+  { t: 'Footer links on every page', p: 'L', s: 'done', a: 'Screen', d: 'Privacy Policy and Terms & Conditions in the footer site-wide.', r: 'D16' },
+  { t: 'Delete my account and Data Deletion Requests', p: 'L', s: 'done', a: 'Legal', d: 'Applicant requests from My Profile; Admin erases or declines; approved agreements are kept.', r: 'F4, AD12' },
+  { t: 'Fill in legal details in Settings', p: 'L', s: 'test', a: 'Review', d: 'Registered address, Grievance Officer name and email. Shown in both policies.', r: 'AD11', w: true },
+  { t: 'Lawyer review of both documents', p: 'L', s: 'test', a: 'Review', d: 'Indian lawyer to check the Privacy Policy, Terms and the 8-year retention period.', r: 'A25, A27', w: true },
+  // Phase 7
+  { t: 'Admin dashboard', p: '7', s: 'test', a: 'Screen', d: '13 summary cards, registrations-per-month chart, average days per stage, overdue alerts.', r: 'AD1' },
+  { t: 'Franchise Registrations', p: '7', s: 'test', a: 'Screen', d: 'Every application, all filters, read-only detail with documents, Reassign panel.', r: 'AD2' },
+  { t: 'Duplicate Review', p: '7', s: 'test', a: 'Screen', d: 'Side-by-side comparison; Not a Duplicate or Confirm Duplicate with a note.', r: 'AD3' },
+  { t: 'Approval Tracking', p: '7', s: 'test', a: 'Screen', d: 'Pipeline columns with counts and days waiting, plus the overdue list.', r: 'AD4' },
+  { t: 'Approved and Rejected lists', p: '7', s: 'test', a: 'Screen', d: 'Stage, reason, reviewer and whether resubmitted.', r: 'AD5' },
+  { t: 'Excel (CSV) exports', p: '7', s: 'test', a: 'Data', d: 'Follow the on-screen filters; PAN masked; every export audited.', r: 'AD2, AD5, A29' },
+  { t: 'Agreement records for Admin', p: '7', s: 'test', a: 'Screen', d: 'Records and email history only; no PDF access (Q1 default).', r: 'AD6' },
+  // Phase 8
+  { t: 'Daily scheduled job (exactly once)', p: '8', s: 'notstarted', a: 'Infrastructure', d: 'Runs at 09:00 IST from Settings, only once even with several servers.', r: '§10.8' },
+  { t: 'Business-day reminders', p: '8', s: 'notstarted', a: 'Notification', d: 'After 2 business days, then every 2, skipping weekends and holidays. Never changes a status.', r: 'N13' },
+  { t: 'Overdue escalation to Admin', p: '8', s: 'notstarted', a: 'Notification', d: 'Alert after 5 business days.', r: 'N14' },
+  { t: 'Reminder history on Approval Tracking', p: '8', s: 'notstarted', a: 'Screen', d: 'Show which reminders were sent and when.', r: 'AD4' },
+  { t: 'Remove unverified registrations', p: '8', s: 'notstarted', a: 'Data', d: 'Delete never-verified registrations after the retention days in Settings, as the Privacy Policy promises.', r: 'A11, Privacy §9' },
+  { t: 'Expired code clean-up', p: '8', s: 'notstarted', a: 'Data', d: 'Clear expired one-time codes and unused uploads on schedule.', r: '§10.3' },
+  { t: 'Check every notification N1–N15', p: '8', s: 'notstarted', a: 'Notification', d: 'Right people, right content, all logged.', r: '§11' },
+  // Phase 9
+  { t: 'Run the PRD acceptance checklist', p: '9', s: 'planned', a: 'Review', d: 'Every item in PRD §16, all four roles, phones and desktops.', r: '§16', w: true },
+  { t: 'Live database on MongoDB Atlas', p: '9', s: 'planned', a: 'Infrastructure', d: 'Set up the live database with backups.', r: 'D14' },
+  { t: 'Private file storage (S3)', p: '9', s: 'planned', a: 'Infrastructure', d: 'Replace local storage with a private bucket and short-lived links.', r: 'Rule 4' },
+  { t: 'Choose and connect an email provider', p: '9', s: 'planned', a: 'Infrastructure', d: 'For example Resend, SendGrid or Amazon SES.', r: '§15', w: true },
+  { t: 'Choose and connect an SMS gateway', p: '9', s: 'planned', a: 'Infrastructure', d: 'Indian gateway with DLT-registered templates, for example MSG91.', r: '§15', w: true },
+  { t: 'Connect the code repository', p: '9', s: 'planned', a: 'Infrastructure', d: 'Push to development; protect production (reviewed pull requests only).', r: 'Git rule', w: true },
+  { t: 'Security review and launch', p: '9', s: 'planned', a: 'Security', d: 'Final review, first reviewed merge to production, go live.', r: '' },
+];
+
+const SCREENS = [
+  ['P1', 'Landing / Login', 'Public', '1'], ['P2', 'Franchise Registration', 'Public', '3'], ['P3', 'Verification', 'Public', '4'], ['P4', 'Set Password', 'Public', '4'],
+  ['P5', 'Registration Success', 'Public', '4'], ['P6', 'Forgot / Reset Password', 'Public', '2'], ['—', 'Privacy Policy', 'Public', 'L'], ['—', 'Terms & Conditions', 'Public', 'L'],
+  ['F1', 'Dashboard', 'Franchise Partner', '4'], ['F2', 'My Application', 'Franchise Partner', '4'], ['F3', 'Edit & Resubmit', 'Franchise Partner', '5'], ['F4', 'My Profile (incl. Delete my account)', 'Franchise Partner', '4'],
+  ['A1', 'Dashboard', 'Accounts', '5'], ['A2', 'Pending Applications', 'Accounts', '5'], ['A3', 'Application Review', 'Accounts', '5'], ['A4', 'My Reviewed Applications', 'Accounts', '5'],
+  ['M1', 'Dashboard', 'Manager', '6'], ['M2', 'Pending Approvals', 'Manager', '6'], ['M3', 'Application Review', 'Manager', '6'], ['M4', 'Approved / Rejected', 'Manager', '6'], ['M5', 'Generated Agreements', 'Manager', '6'],
+  ['AD1', 'Dashboard', 'Admin', '7'], ['AD2', 'Franchise Registrations', 'Admin', '7'], ['AD3', 'Duplicate Review', 'Admin', '7'], ['AD4', 'Approval Tracking', 'Admin', '7'],
+  ['AD5', 'Approved / Rejected Applications', 'Admin', '7'], ['AD6', 'Generated Agreements (records)', 'Admin', '7'], ['AD7', 'Agreement Content', 'Admin', '2'], ['AD8', 'Accounts Users', 'Admin', '2'],
+  ['AD9', 'Manager Users', 'Admin', '2'], ['AD10', 'Audit Log', 'Admin', '2'], ['AD11', 'Settings', 'Admin', '2'], ['AD12', 'Data Deletion Requests', 'Admin', 'L'],
+];
+
+const ACTIONS = [
+  ['Send the code repository address', 'So the work can be pushed to development', 'Any time'],
+  ['Fill in Settings → Legal and privacy', 'Registered address, Grievance Officer name and email', 'Before go-live'],
+  ['Have a lawyer review the Privacy Policy and Terms', 'Including the 8-year retention period', 'Before go-live'],
+  ['Click through Phase 7 Admin screens', 'Dashboard, registrations, duplicates, tracking, exports', 'Now'],
+  ['Read a real generated agreement PDF', 'Layout, wording, logo and footer', 'Now'],
+  ['Choose an email provider and an SMS gateway', 'Needed to send real emails and SMS codes', 'Phase 9'],
+  ['Supply branding', 'Logo, colours, organisation name, support contact (Admin → Settings)', 'Before go-live'],
+];
+const QUESTIONS = [
+  ['Q1', 'Can Admin view or download the agreement PDF?', 'Records and email history only'],
+  ['Q2', 'Is the FRN/2026/0001 reference format right?', 'FRN/YYYY/NNNN (prefix editable in Settings)'],
+  ['Q3', 'Should applicants save a draft and continue on another device?', 'Browser-only autosave'],
+  ['Q4', 'Block Accounts from approving while a duplicate is open?', 'Yes, blocked'],
+  ['Q5', 'Do agreements expire, renew or get revoked?', 'Out of scope for version 1'],
+  ['Q6', 'Must an Authorised Representative upload an authorisation letter?', 'Not required'],
+];
+const DEFAULTS = [
+  ['A21', 'The Manager also cannot approve while a duplicate is open; reject still works.'],
+  ['A22', 'PDF uses standard fonts: ₹ prints as "Rs." and other scripts as "?".'],
+  ['A25', 'Approved agreements are kept for the relationship plus 8 years and cannot be erased on request.'],
+  ['A26', 'Data deletion is a request that Admin handles, normally within 30 days.'],
+  ['A29', 'Exports are CSV files that open in Excel, with the PAN masked.'],
+  ['A30', 'Confirm Duplicate keeps Approve blocked until the applicant resubmits.'],
+  ['A32', 'Dashboard "Overdue" means waiting over the escalation period (default 5 business days).'],
+];
+
+// =====================================================================================
+// BOARD DATA END
+// =====================================================================================
+
+// ---------- helpers ----------
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) n.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return n;
+};
+const pill = (s) => el('span', { class: `pill s-${s}`, text: STATUS[s].label });
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('fap-board:' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('fap-board:' + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+};
+
+/** A phase is complete when every card is done, apart from review tasks that are waiting on the owner. */
+function phaseStatus(id) {
+  const cards = CARDS.filter((c) => c.p === id);
+  if (cards.every((c) => c.s === 'done' || (c.s === 'test' && c.w))) return 'done';
+  if (cards.some((c) => c.s === 'dev')) return 'dev';
+  if (cards.some((c) => c.s === 'test')) return 'test';
+  if (cards.every((c) => c.s === 'planned')) return 'planned';
+  return 'notstarted';
+}
+
+// ---------- overview ----------
+function renderOverview() {
+  const done = CARDS.filter((c) => c.s === 'done').length;
+  const pct = Math.round((done / CARDS.length) * 100);
+  const ring = document.getElementById('ring');
+  ring.style.setProperty('--p', pct);
+  ring.dataset.label = `${pct}%`;
+  const phasesDone = PHASES.filter((p) => phaseStatus(p.id) === 'done').length;
+  document.getElementById('ring-text').textContent = `${done} of ${CARDS.length} items completed`;
+  document.getElementById('ring-sub').textContent = `${phasesDone} of ${PHASES.length} phases complete · ${SYNC.headline}`;
+  const counts = STATUSES.map((s) => [s, CARDS.filter((c) => c.s === s.key).length]);
+  const stats = document.getElementById('stats');
+  stats.replaceChildren(
+    ...counts.map(([s, n]) => el('div', { class: 'stat' }, el('b', { text: String(n) }), el('span', { text: s.label }))),
+    el('div', { class: 'stat' }, el('b', { text: '7' }), el('span', { text: 'Automated test suites, all passing' })),
+    el('div', { class: 'stat' }, el('b', { text: String(SCREENS.length) }), el('span', { text: 'Screens in the portal' })),
+  );
+
+  const list = document.getElementById('phase-list');
+  list.replaceChildren(
+    ...PHASES.map((p) => {
+      const cards = CARDS.filter((c) => c.p === p.id);
+      const d = cards.filter((c) => c.s === 'done').length;
+      const st = phaseStatus(p.id);
+      return el(
+        'button',
+        { class: 'phase-row', type: 'button', onclick: () => openPhase(p.id), 'aria-label': `Open ${phaseLabel(p.id)} ${p.name} on the board` },
+        el('span', { class: 'phase-no', text: p.id === 'L' ? 'LEGAL' : `0${p.id}`.slice(-2) }),
+        el('div', {}, el('h3', { text: p.name }), el('p', { text: p.summary })),
+        el('div', { class: 'bar-wrap' }, el('div', { class: 'bar' }, el('i', { style: `width:${(d / cards.length) * 100}%` })), el('div', { class: 'bar-label', text: `${d} / ${cards.length} completed` })),
+        pill(st),
+      );
+    }),
+  );
+}
+
+// ---------- code & branches ----------
+function renderGit() {
+  const [y, m, d] = SYNC.date.split('-');
+  document.getElementById('updated').textContent = `Project board · updated ${d}-${m}-${y}`;
+  const row = (k, v) => [el('dt', { text: k }), el('dd', {}, v)];
+  document.getElementById('git-kv').replaceChildren(
+    ...row('Development', el('span', {}, el('span', { class: 'mono', text: SYNC.developmentHead }), ` · ${SYNC.developmentCommits} commits`)),
+    ...row('Production', el('span', {}, el('span', { class: 'mono', text: SYNC.productionHead }), ` · ${SYNC.productionLabel}`)),
+    ...row('Waiting for production', el('span', {}, `${SYNC.aheadOfProduction} commits on development not yet merged. Production changes only through a reviewed merge.`)),
+    ...row('Online repository', SYNC.remote ? el('span', {}, el('span', { class: 'mono', text: SYNC.remote }), SYNC.pushed ? ' · up to date' : ' · not yet pushed') : el('span', { class: 'pill wait-pill', text: 'Not connected yet' })),
+    ...row('Automated tests', el('span', {}, SYNC.tests.passing ? el('span', { class: 'pill s-done', text: `${SYNC.tests.suites} suites passing` }) : el('span', { class: 'pill wait-pill', text: 'Failing' }), ' at ', el('span', { class: 'mono', text: SYNC.tests.atCommit }))),
+    ...row('Uncommitted changes', el('span', { text: SYNC.uncommittedAtSync ? `${SYNC.uncommittedAtSync} files at the last update` : 'None' })),
+  );
+  document.getElementById('commits-table').replaceChildren(
+    el('thead', {}, el('tr', {}, el('th', { text: 'Commit' }), el('th', { text: 'Date' }), el('th', { text: 'What changed' }))),
+    el('tbody', {}, ...COMMITS.map(([h, date, msg]) => el('tr', {}, el('td', { class: 'mono', text: h }), el('td', { class: 'muted', style: 'white-space:nowrap', text: date.split('-').reverse().join('-') }), el('td', { text: msg })))),
+  );
+}
+
+// ---------- board ----------
+const state = {
+  phase: store.get('phase', 'all'),
+  area: store.get('area', 'all'),
+  layout: store.get('layout', 'status'),
+  waitOnly: false,
+  q: '',
+};
+const AREAS = [...new Set(CARDS.map((c) => c.a))].sort();
+
+function filtered() {
+  const q = state.q.trim().toLowerCase();
+  return CARDS.filter(
+    (c) =>
+      (state.phase === 'all' || c.p === state.phase) &&
+      (state.area === 'all' || c.a === state.area) &&
+      (!state.waitOnly || c.w) &&
+      (!q || `${c.t} ${c.d} ${c.r} ${c.a}`.toLowerCase().includes(q)),
+  );
+}
+
+function cardEl(c, showStatus) {
+  return el(
+    'article',
+    { class: 'card', 'data-s': c.s },
+    el('div', { class: 'meta' }, el('span', { class: 'tag phase', text: phaseLabel(c.p) }), el('span', { class: 'tag', text: c.a }), showStatus ? pill(c.s) : null, c.w ? el('span', { class: 'pill wait-pill', text: 'Waiting on you' }) : null),
+    el('h3', { text: c.t }),
+    el('p', { text: c.d }),
+    c.r ? el('span', { class: 'ref', text: `PRD ${c.r}` }) : null,
+  );
+}
+
+function renderBoard() {
+  document.getElementById('phase-chips').replaceChildren(
+    ...[{ id: 'all', label: 'All phases' }, ...PHASES.map((p) => ({ id: p.id, label: `${phaseLabel(p.id)} · ${p.name}` }))].map((p) =>
+      el('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.phase === p.id), onclick: () => { state.phase = p.id; store.set('phase', p.id); renderBoard(); } }, p.label),
+    ),
+  );
+  const area = document.getElementById('area-filter');
+  if (!area.options.length) {
+    area.append(el('option', { value: 'all', text: 'All areas' }), ...AREAS.map((a) => el('option', { value: a, text: a })));
+    area.addEventListener('change', () => { state.area = area.value; store.set('area', area.value); renderBoard(); });
+  }
+  area.value = state.area;
+  document.getElementById('layout-status').setAttribute('aria-pressed', String(state.layout === 'status'));
+  document.getElementById('layout-phase').setAttribute('aria-pressed', String(state.layout === 'phase'));
+
+  const cards = filtered();
+  const host = document.getElementById('board-host');
+  if (state.layout === 'status') {
+    host.replaceChildren(
+      el('div', { class: 'board-scroll' },
+        el('div', { class: 'board' },
+          ...STATUSES.map((s) => {
+            const inCol = cards.filter((c) => c.s === s.key);
+            return el('section', { class: 'col', 'aria-label': s.label },
+              el('div', { class: 'col-head' }, el('h2', {}, pill(s.key)), el('span', { class: 'count', text: String(inCol.length) })),
+              el('div', { class: 'col-hint', text: s.hint }),
+              ...(inCol.length ? inCol.map((c) => cardEl(c, false)) : [el('div', { class: 'empty', text: s.key === 'dev' ? 'Nothing in progress. Phase 8 starts when you say "go to step 8".' : 'No cards match' })]),
+            );
+          }),
+        ),
+      ),
+    );
+  } else {
+    const phases = PHASES.filter((p) => cards.some((c) => c.p === p.id));
+    host.replaceChildren(
+      el('div', { class: 'lanes' },
+        ...(phases.length
+          ? phases.map((p) => {
+              const inLane = cards.filter((c) => c.p === p.id);
+              const all = CARDS.filter((c) => c.p === p.id);
+              const d = all.filter((c) => c.s === 'done').length;
+              return el('section', { class: 'panel' },
+                el('div', { class: 'lane-head' },
+                  el('span', { class: 'tag phase', text: phaseLabel(p.id) }),
+                  el('h2', { text: p.name }),
+                  pill(phaseStatus(p.id)),
+                  el('span', { class: 'small muted', text: `${d} / ${all.length} completed` }),
+                ),
+                el('div', { class: 'lane-cards' }, ...inLane.map((c) => cardEl(c, true))),
+              );
+            })
+          : [el('div', { class: 'empty', text: 'No cards match these filters' })]),
+      ),
+    );
+  }
+}
+
+function openPhase(id) {
+  state.phase = id;
+  store.set('phase', id);
+  location.hash = 'board';
+}
+
+// ---------- screens ----------
+let screenRole = 'All';
+function renderScreens() {
+  const roles = ['All', 'Public', 'Franchise Partner', 'Accounts', 'Manager', 'Admin'];
+  document.getElementById('screen-role-chips').replaceChildren(
+    ...roles.map((r) => el('button', { class: 'chip', type: 'button', 'aria-pressed': String(screenRole === r), onclick: () => { screenRole = r; renderScreens(); } }, r)),
+  );
+  const statusOf = phaseStatus;
+  const rows = SCREENS.filter((s) => screenRole === 'All' || s[2] === screenRole);
+  document.getElementById('screens-table').replaceChildren(
+    el('thead', {}, el('tr', {}, el('th', { text: 'Code' }), el('th', { text: 'Screen' }), el('th', { text: 'Used by' }), el('th', { text: 'Built in' }), el('th', { text: 'Status' }))),
+    el('tbody', {}, ...rows.map(([code, name, role, phase]) =>
+      el('tr', {}, el('td', { class: 'mono', text: code }), el('td', { text: name }), el('td', { class: 'muted', text: role }), el('td', {}, el('span', { class: 'tag phase', text: phaseLabel(phase) })), el('td', {}, pill(statusOf(phase)))))),
+  );
+}
+
+// ---------- decisions ----------
+function table(id, head, rows) {
+  document.getElementById(id).replaceChildren(
+    el('thead', {}, el('tr', {}, ...head.map((h) => el('th', { text: h })))),
+    el('tbody', {}, ...rows.map((r) => el('tr', {}, ...r.map((c, i) => el('td', { class: i === 0 && /^[AQ]\d/.test(c) ? 'mono' : '', text: c }))))),
+  );
+}
+function renderDecisions() {
+  table('actions-table', ['What', 'Why', 'When'], ACTIONS);
+  table('questions-table', ['#', 'Question', 'Built with'], QUESTIONS);
+  table('defaults-table', ['#', 'Default'], DEFAULTS);
+}
+
+// ---------- legend & wiring ----------
+document.getElementById('legend').replaceChildren(...STATUSES.map((s) => el('div', {}, pill(s.key), el('span', { text: s.hint }))));
+document.getElementById('layout-status').addEventListener('click', () => { state.layout = 'status'; store.set('layout', 'status'); renderBoard(); });
+document.getElementById('layout-phase').addEventListener('click', () => { state.layout = 'phase'; store.set('layout', 'phase'); renderBoard(); });
+document.getElementById('search').addEventListener('input', (e) => { state.q = e.target.value; renderBoard(); });
+document.getElementById('wait-only').addEventListener('change', (e) => { state.waitOnly = e.target.checked; renderBoard(); });
+
+const VIEWS = ['overview', 'board', 'screens', 'decisions'];
+function route() {
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+  for (const name of VIEWS) document.getElementById(`view-${name}`).hidden = name !== v;
+  document.querySelectorAll('.tab').forEach((t) => (t.dataset.view === v ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current')));
+  if (v === 'board') renderBoard();
+  window.scrollTo({ top: 0 });
+}
+renderOverview();
+renderGit();
+renderScreens();
+renderDecisions();
+renderBoard();
+window.addEventListener('hashchange', route);
+route();
+</script>
