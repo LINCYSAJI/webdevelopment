@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   AGREEMENT_ACCEPTANCE_TEXT,
+  LEGAL_DOCUMENTS,
   FIRM_TYPES,
   SIGNATORY_CAPACITIES,
   registrationMergeValues,
@@ -66,6 +67,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
 
   const [form, setForm] = useState<FormState>(props.initialForm);
   const [accepted, setAccepted] = useState(false);
+  const [consented, setConsented] = useState(false);
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [serverErrors, setServerErrors] = useState<FieldErrors>({});
@@ -80,7 +82,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
     return () => window.clearTimeout(t);
   }, [form, onFormChange]);
 
-  const payload = useMemo(() => toPayload(form, agreement.id, accepted, false), [form, agreement, accepted]);
+  const payload = useMemo(() => toPayload(form, agreement.id, accepted, consented, false), [form, agreement, accepted, consented]);
   const clientErrors = useMemo<FieldErrors>(() => {
     const r = schema.safeParse(payload);
     return r.success ? {} : toFieldErrors(r.error);
@@ -125,7 +127,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
     }
     setSubmitting(true);
     try {
-      await props.onSubmit(toPayload(form, agreement.id, accepted, acknowledgeDuplicates));
+      await props.onSubmit(toPayload(form, agreement.id, accepted, consented, acknowledgeDuplicates));
     } catch (err) {
       setWarnings(null);
       if (!(err instanceof ApiError)) {
@@ -159,6 +161,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
     props.onStartOver?.();
     setForm(emptyForm());
     setAccepted(false);
+    setConsented(false);
     setTouched(new Set());
     setSubmitAttempted(false);
     setServerErrors({});
@@ -432,17 +435,34 @@ export function RegistrationForm(props: RegistrationFormProps) {
               {AGREEMENT_ACCEPTANCE_TEXT} <span className="text-red-600" aria-hidden="true">*</span>
             </span>
           </label>
+
+          <label data-field="legalConsent" className="mt-3 flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={consented} onChange={(e) => setConsented(e.target.checked)} aria-required="true" />
+            <span>
+              I have read and agree to the{' '}
+              <a href={LEGAL_DOCUMENTS.terms.path} target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline">
+                Terms &amp; Conditions
+              </a>{' '}
+              and the{' '}
+              <a href={LEGAL_DOCUMENTS.privacy.path} target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline">
+                Privacy Policy
+              </a>
+              . I consent to my personal data, and that of the contact persons I have named (who know I am sharing it), being processed for the purposes described in the Privacy Policy.{' '}
+              <span className="text-red-600" aria-hidden="true">*</span>
+            </span>
+          </label>
+          {shownErrors.legalConsent && <p className="mt-1 text-sm text-red-700">{shownErrors.legalConsent}</p>}
         </Section>
 
         {formError && <Alert tone="error">{formError}</Alert>}
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-center text-sm sm:text-left">{props.footerLink}</div>
-          <button type="submit" className="btn-primary w-full sm:w-auto sm:px-8" disabled={!accepted || submitting}>
+          <button type="submit" className="btn-primary w-full sm:w-auto sm:px-8" disabled={!accepted || !consented || submitting}>
             {submitting ? 'Submitting…' : props.submitLabel}
           </button>
         </div>
-        {!accepted && <p className="text-right text-xs text-slate-500">Tick the agreement checkbox to enable {props.submitLabel}.</p>}
+        {(!accepted || !consented) && <p className="text-right text-xs text-slate-500">Tick both checkboxes to enable {props.submitLabel}.</p>}
       </form>
 
       {warnings && (

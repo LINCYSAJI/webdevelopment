@@ -40,7 +40,7 @@ Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`):
 | `npm run migrate` | Apply pending migrations (the API also applies them on startup) |
 | `npm run seed:dev` | Create dev logins `admin` / `accounts` / `manager` (`@portal.local`), password `Portal@2026`. Development only |
 | `npm run typecheck` | TypeScript check across all workspaces |
-| `npm test` | End-to-end API tests on a throwaway in-memory database (never touches dev data) |
+| `npm test` | End-to-end API tests (6 suites) on a throwaway in-memory database (never touches dev data) |
 
 - The local database is downloaded and run by `server/src/scripts/local-db.ts` (via mongodb-memory-server's binary). It is for development only; production uses MongoDB Atlas.
 - Server settings live in `server/.env` (copy from `server/.env.example`).
@@ -61,6 +61,7 @@ Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`):
 4. ✅ **Verification and Franchise User screens:** email/SMS OTP (`otp.service.ts`: HMAC-hashed 6-digit codes, expiry/cooldown/attempts from Settings, max 6 codes per hour), set password → one transaction creates the `franchise_user`, sets `pending_accounts`, `applicationId` (`APP-YYYY-NNNN`), `panLock`/`gstLock`, history entry, then logs in; N2/N3 emails. SMS uses the `dev_outbox` provider (development only). Franchise Dashboard, My Application (versions, documents, history), My Profile (change password; change email/mobile with OTP when not under review). All `/api/franchise/*` queries are scoped to the user's own registration. Tests: `server/src/tests/verification.e2e.ts`
 5. ✅ **Accounts review and resubmission:** `workflow.service.ts` (pick-up, approve, reject, Admin reassign / move-all; each a conditional `findOneAndUpdate` + history + assignment history + audit in one transaction), `review.service.ts` (A1 dashboard, A2 queues with search/filters/business days, A3 review view with "changes since last review", A4 reviewed list; Accounts see Pending Accounts + what they reviewed), `resubmission.service.ts` (F3: keep-or-replace documents via `keep:<docId>`, same agreement version re-accepted, PAN/GST re-check excluding self, new duplicate matches only, back to same reviewer or straight to Manager). Accounts users with applications cannot be deactivated until they are handed over (AD8). N4–N7, N10 emails. Shared business-day maths in `shared/src/workflow.ts`. Tests: `server/src/tests/workflow.e2e.ts`
 6. ✅ **Manager review and the agreement PDF:** `workflow.service.ts` `approveByManager` (one transaction: status, `FRN/YYYY/NNNN` via `counters` `agreement_ref_YYYY`, history, `generatedagreements` record, audit; then generation) and `rejectByManager`; `agreement-pdf.ts` builds the A4 PDF with pdf-lib (details pages, typed text via htmlparser2 or the uploaded PDF's pages scaled above the footer band, acceptance record, footer + "Page X of Y" on every page); `generated-agreement.service.ts` (generate/retry with failure alerts N12, view/download/send N11 with attachment, append-only `agreementemaillogs`, every view/download/email audited). `/api/manager/*` is the ONLY route to the PDF (Manager role). Screens M1–M5. Tests: `server/src/tests/manager.e2e.ts`
+   - ✅ **Legal compliance (India, DPDP Act):** public `/privacy-policy` and `/terms` pages (`client/src/pages/legal/`, versions in `shared/src/legal.ts` `LEGAL_DOCUMENTS`), `LegalFooter` on every layout, mandatory `legalConsent` checkbox on register and resubmit saved by `recordConsent()` (append-only `consentrecords`), Settings fields `registeredAddress` / `grievanceOfficerName` / `grievanceOfficerEmail`. **Delete my account:** `data-request.service.ts` (request / cancel in My Profile, Admin AD12 erase or decline; erase is refused for approved agreements; status `withdrawn`). Tests: `server/src/tests/privacy.e2e.ts`
 7. Admin oversight: registrations, duplicate review, approval tracking, exports
 8. All notifications and business-day reminders
 9. Acceptance-checklist testing (PRD §16) and go-live preparation (Atlas, S3, email/SMS providers)
@@ -90,6 +91,7 @@ Screens not built yet show a "planned for step N" placeholder; the step numbers 
 7. **No mock data or fake providers in the final product.** Seed data is for local development only.
 8. **There are no fees, payments or financial calculations** anywhere in the product (PRD D1).
 9. **Write important actions to the append-only audit log** (PRD AD10). Never update or delete audit rows.
+   - **The only exception to "permanent records / files are never changed or deleted"** is the DPDP erasure in `data-request.service.ts` `eraseRequest()` (PRD D16, A28), run by Admin on an applicant's request. Do not add other bypasses of `appendOnly`.
 10. **Uniqueness is enforced by MongoDB unique indexes**, not only in the UI:
     - one registration per PAN
     - one per GST, using a partial unique index because GST is optional
@@ -102,7 +104,7 @@ Screens not built yet show a "planned for step N" placeholder; the step numbers 
 ## Domain cheat-sheet
 
 - **Roles:** `admin`, `accounts`, `manager`, `franchise_user`.
-- **Statuses:** `pending_verification` → `pending_accounts` → `pending_manager` → `approved`, plus `rejected_by_accounts` and `rejected_by_manager`.
+- **Statuses:** `pending_verification` → `pending_accounts` → `pending_manager` → `approved`, plus `rejected_by_accounts` and `rejected_by_manager`, and `withdrawn` (data erased on request, final).
   - "Accounts Approved" is a history event, not a status.
   - Resubmitting after `rejected_by_accounts` goes to `pending_accounts`, auto-reassigned to the same reviewer if they are still active.
   - Resubmitting after `rejected_by_manager` goes **straight to `pending_manager`**.
@@ -127,6 +129,7 @@ Screens not built yet show a "planned for step N" placeholder; the step numbers 
   - GSTIN: `^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$`, where characters 3–12 must equal the PAN
   - Mobile: `^[6-9][0-9]{9}$`
 - **Dates** are stored in UTC and displayed in IST as DD-MM-YYYY.
+- **Legal text changes:** when the Privacy Policy or Terms wording changes, raise its `version` and `effectiveDate` in `LEGAL_DOCUMENTS` so new consents record the new version.
 
 ## Conventions
 

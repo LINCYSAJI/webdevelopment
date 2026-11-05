@@ -15,6 +15,8 @@ const userSchema = new Schema(
     failedLoginAttempts: { type: Number, default: 0 },
     firstFailedLoginAt: { type: Date },
     lockedUntil: { type: Date },
+    // Set when the applicant's personal data was erased at their request (DPDP Act s.12).
+    erasedAt: { type: Date },
   },
   { timestamps: true },
 );

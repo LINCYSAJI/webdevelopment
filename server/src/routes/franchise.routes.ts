@@ -1,11 +1,12 @@
 import express, { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { UPLOAD_KINDS, contactChangeConfirmSchema, contactChangeStartSchema, resubmissionSchema, type UploadKind } from '@fap/shared';
+import { UPLOAD_KINDS, contactChangeConfirmSchema, dataDeletionRequestSchema, contactChangeStartSchema, resubmissionSchema, type UploadKind } from '@fap/shared';
 import { AppError, asyncHandler } from '../lib/errors';
 import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody, validateBodyDetailed } from '../middleware/validate';
 import { toPublicUser } from '../models/User';
+import * as dataRequests from '../services/data-request.service';
 import * as franchise from '../services/franchise.service';
 import * as resubmission from '../services/resubmission.service';
 import { createUpload } from '../services/upload.service';
@@ -112,5 +113,30 @@ franchiseRouter.put(
     }
     const data = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     res.status(201).json({ upload: await createUpload(kind, data, fileName, req.ip) });
+  }),
+);
+
+// ---------- Delete my account (DPDP Act s.12) ----------
+
+franchiseRouter.get(
+  '/profile/deletion-request',
+  asyncHandler(async (req, res) => {
+    res.json(await dataRequests.getMyRequest(req.user!));
+  }),
+);
+
+franchiseRouter.post(
+  '/profile/deletion-request',
+  contactChangeLimiter,
+  validateBodyDetailed(dataDeletionRequestSchema),
+  asyncHandler(async (req, res) => {
+    res.status(201).json({ request: await dataRequests.requestDeletion(req.user!, req.body, { ip: req.ip }) });
+  }),
+);
+
+franchiseRouter.post(
+  '/profile/deletion-request/cancel',
+  asyncHandler(async (req, res) => {
+    res.json({ request: await dataRequests.cancelMyRequest(req.user!, req.ip) });
   }),
 );

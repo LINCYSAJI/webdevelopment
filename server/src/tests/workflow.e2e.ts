@@ -109,6 +109,7 @@ async function newApplicant(o: { pan: string; email: string; mobile: string; con
     signatory: { name: 'Priya Sharma', capacity: 'Partner', email: o.email, mobile: o.mobile, idProofFile: await up(anon, '/public/uploads', 'document', PNG), photoFile: await up(anon, '/public/uploads', 'photo', PNG) },
     contacts: [{ name: 'Ravi Kumar', email: o.contactEmail, mobile: o.contactMobile, idProofFile: await up(anon, '/public/uploads', 'document', PNG), photoFile: await up(anon, '/public/uploads', 'photo', PNG) }],
     agreement: { agreementVersionId: v1.id, accepted: true },
+    legalConsent: true,
     acknowledgeDuplicates: true,
   };
   const token = (await anon.call('POST', '/public/registrations', body)).body.verificationToken as string;
@@ -187,6 +188,7 @@ const resubmitBody = async (over: Record<string, unknown> = {}) => ({
   signatory: { name: s1.signatory.name, capacity: s1.signatory.capacity, email: 'ignored@example.com', mobile: '9999999999', idProofFile: keep(s1.signatory.idProof), photoFile: await up(p.browser, '/franchise/uploads', 'photo', PNG2) },
   contacts: s1.contacts.map((c: any) => ({ name: c.name, email: c.email, mobile: c.mobile, idProofFile: keep(c.idProof), photoFile: keep(c.photo) })),
   agreement: { agreementVersionId: v1.id, accepted: true },
+  legalConsent: true,
   ...over,
 });
 const other = await newApplicant({ pan: 'BBBBB2222B', email: 'o@example.com', mobile: '9200000001', contactEmail: 'oc@example.com', contactMobile: '9200000002' });
@@ -248,6 +250,7 @@ const managerResubmit = (acknowledgeDuplicates: boolean) => p.browser.call('POST
   signatory: { name: s2.signatory.name, capacity: s2.signatory.capacity, email: s2.signatory.email, mobile: s2.signatory.mobile, idProofFile: keep(s2.signatory.idProof), photoFile: keep(s2.signatory.photo) },
   contacts: s2.contacts.map((c: any) => ({ name: c.name, email: c.email, mobile: c.mobile, idProofFile: keep(c.idProof), photoFile: keep(c.photo) })),
   agreement: { agreementVersionId: v1.id, accepted: true },
+  legalConsent: true,
 });
 // Applicant Q (registered later) used P's email as a contact, so the re-run duplicate check warns P.
 r = await managerResubmit(false);
@@ -282,6 +285,7 @@ await t.browser.call('POST', '/franchise/application/resubmit', {
   signatory: { name: tf.signatory.name, capacity: tf.signatory.capacity, email: tf.signatory.email, mobile: tf.signatory.mobile, idProofFile: await up(t.browser, '/franchise/uploads', 'document', PNG2), photoFile: keep(tf.signatory.photo) },
   contacts: tf.contacts.map((c: any) => ({ name: c.name, email: c.email, mobile: c.mobile, idProofFile: keep(c.idProof), photoFile: keep(c.photo) })),
   agreement: { agreementVersionId: v1.id, accepted: true },
+  legalConsent: true,
 });
 const regT = await Registration.findById(t.id);
 ok('reviewer no longer active -> resubmission goes to Unassigned', regT?.status === 'pending_accounts' && regT.assignedTo === null, regT?.toObject());

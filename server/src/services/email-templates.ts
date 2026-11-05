@@ -250,3 +250,48 @@ export function defaultAgreementEmailText(name: string, referenceNumber: string,
 export function agreementEmail(subject: string, message: string) {
   return layout(subject, message.split(/\n{2,}/).map((p) => p.replace(/\n/g, ' ').trim()).filter(Boolean));
 }
+
+// ---------- Delete my account / data deletion (DPDP Act s.12) ----------
+
+/** To the applicant: we received their request. */
+export function dataRequestReceivedEmail(name: string) {
+  return layout('We received your request to delete your account', [
+    `Hello ${name},`,
+    'We have received your request to delete your franchise portal account and erase your personal data.',
+    'Our team will review it and reply by email, normally within 30 days. You can cancel the request from My Profile until it is processed.',
+    'If you did not make this request, please log in and change your password, then cancel the request in My Profile.',
+  ]);
+}
+
+/** To each Admin: a request is waiting. */
+export function dataRequestAdminEmail(name: string, applicantName: string, applicationId: string | null, url: string) {
+  return layout(
+    'New data deletion request',
+    [
+      `Hello ${name},`,
+      `${applicantName}${applicationId ? ` (application ${applicationId})` : ''} has asked for their account to be deleted and their personal data erased.`,
+      'Please review it in Data Deletion Requests. The law expects a reply without undue delay.',
+    ],
+    { label: 'Open Data Deletion Requests', url },
+  );
+}
+
+/** To the applicant: the request was declined, with the reason. */
+export function dataRequestDeclinedEmail(name: string, note: string) {
+  return layout('About your request to delete your account', [
+    `Hello ${name},`,
+    'We have reviewed your request to delete your account and erase your personal data, but we are unable to complete it at this time.',
+    `Reason: ${note}`,
+    'If you disagree, you can reply to our Grievance Officer (details in our Privacy Policy). If you are still not satisfied, you may complain to the Data Protection Board of India.',
+  ]);
+}
+
+/** To the applicant's former email: the erasure is complete. */
+export function dataErasedEmail(name: string) {
+  return layout('Your account has been deleted', [
+    `Hello ${name},`,
+    'As you requested, your franchise portal account has been closed and your application withdrawn. Your personal data and uploaded documents have been erased.',
+    'We keep only a minimal record that you consented and later asked for erasure, as the law requires, and our security logs for the period stated in our Privacy Policy.',
+    'This is the last email you will receive from the portal.',
+  ]);
+}

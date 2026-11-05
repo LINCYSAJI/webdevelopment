@@ -11,6 +11,7 @@ const STATUS_COLOR: Record<ApplicationStatus, 'green' | 'gray' | 'amber' | 'red'
   rejected_by_accounts: 'red',
   rejected_by_manager: 'red',
   approved: 'green',
+  withdrawn: 'gray',
 };
 
 /** Status badge using the wording shown to applicants. */

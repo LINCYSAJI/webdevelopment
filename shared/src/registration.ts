@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { agreementAcceptanceInputSchema } from './admin';
+import { legalConsentSchema } from './legal';
 import type { MergeValues } from './agreement';
 import { FIRM_TYPES, SIGNATORY_CAPACITIES, type ApplicationStatus } from './constants';
 import { formatDateIST } from './format';
@@ -149,6 +150,9 @@ function buildRegistrationSchema(allowKeep: boolean) {
 
     // Section 5: Franchise Agreement
     agreement: agreementAcceptanceInputSchema,
+
+    // Terms & Conditions and Privacy Policy consent (DPDP Act s.6)
+    legalConsent: legalConsentSchema,
 
     /** Set when the applicant chose "Continue" after a possible-duplicate warning. */
     acknowledgeDuplicates: z.boolean().default(false),

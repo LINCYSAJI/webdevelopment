@@ -60,6 +60,8 @@ const registrationSchema = new Schema(
     lastSubmittedAt: { type: Date },
     // When the application entered its current waiting stage; business-day reminders count from here (PRD 10.8).
     stageEnteredAt: { type: Date },
+    // Set when the applicant's personal data was erased at their request (DPDP Act s.12).
+    erasedAt: { type: Date },
   },
   { timestamps: true },
 );

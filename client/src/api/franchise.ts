@@ -2,6 +2,8 @@ import type {
   ApplicationStatus,
   ContactChangeStartInput,
   ContactKind,
+  DataDeletionRequestInput,
+  MyDataRequestView,
   MyApplicationView,
   PublicAgreementView,
   PublicUser,
@@ -48,3 +50,14 @@ export const uploadResubmissionFile = (kind: UploadKind, file: File) =>
     headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
     body: file,
   }).then((r) => r.upload);
+
+// ---------- Delete my account (DPDP Act) ----------
+
+export const getMyDeletionRequest = () =>
+  api<{ request: MyDataRequestView | null; eraseBlockedReason: string | null }>('/franchise/profile/deletion-request');
+
+export const requestAccountDeletion = (input: DataDeletionRequestInput) =>
+  api<{ request: MyDataRequestView }>('/franchise/profile/deletion-request', { method: 'POST', json: input }).then((r) => r.request);
+
+export const cancelAccountDeletion = () =>
+  api<{ request: MyDataRequestView }>('/franchise/profile/deletion-request/cancel', { method: 'POST' }).then((r) => r.request);

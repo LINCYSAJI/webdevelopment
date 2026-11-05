@@ -20,6 +20,7 @@ import { getSettings } from '../models/Settings';
 import { SubmissionVersion } from '../models/SubmissionVersion';
 import { User } from '../models/User';
 import { recordAcceptance } from './agreement.service';
+import { recordConsent } from './consent.service';
 import { audit } from './audit.service';
 import { sendEmail } from './email.service';
 import { duplicateFlagEmail } from './email-templates';
@@ -345,6 +346,9 @@ export async function submitRegistration(data: RegistrationData, ctx: RequestCon
       },
       session,
     );
+
+    // 5b. Terms & Conditions and Privacy Policy consent (DPDP Act).
+    await recordConsent({ registrationId, submissionVersion: 1, acceptedAt: now, ip: ctx.ip, userAgent: ctx.userAgent }, session);
 
     // 6. Possible duplicate for Admin to review.
     if (matches.length) {

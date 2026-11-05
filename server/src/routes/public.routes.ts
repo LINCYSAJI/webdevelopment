@@ -93,6 +93,9 @@ publicRouter.get(
       secondaryColor: s.secondaryColor,
       supportEmail: s.supportEmail ?? null,
       supportPhone: s.supportPhone ?? null,
+      registeredAddress: s.registeredAddress ?? null,
+      grievanceOfficerName: s.grievanceOfficerName ?? null,
+      grievanceOfficerEmail: s.grievanceOfficerEmail ?? null,
     };
     res.json({ branding });
   }),

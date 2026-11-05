@@ -12,6 +12,10 @@ const settingsSchema = new Schema(
     secondaryColor: { type: String, default: '#0ea5e9' },
     supportEmail: { type: String, default: null },
     supportPhone: { type: String, default: null },
+    // Legal (Privacy Policy / Terms & Conditions, DPDP Act)
+    registeredAddress: { type: String, default: null },
+    grievanceOfficerName: { type: String, default: null },
+    grievanceOfficerEmail: { type: String, default: null },
     // Agreement
     agreementRefPrefix: { type: String, default: 'FRN' },
     // Verification

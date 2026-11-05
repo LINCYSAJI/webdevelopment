@@ -135,6 +135,7 @@ async function readyForManager(o: { pan: string; email: string; mobile: string; 
       signatory: { name: 'Priya Sharma', capacity: 'Director', email: o.email, mobile: o.mobile, idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) },
       contacts: [{ name: 'Ravi Kumar', email: `c.${o.email}`, mobile: o.contactMobile, idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) }],
       agreement: { agreementVersionId: o.agreementId, accepted: true },
+      legalConsent: true,
       acknowledgeDuplicates: true,
     })
   ).body.verificationToken as string;
@@ -185,6 +186,7 @@ r = await a.applicant.call('POST', '/franchise/application/resubmit', {
   signatory: { name: form.signatory.name, capacity: form.signatory.capacity, email: form.signatory.email, mobile: form.signatory.mobile, idProofFile: keep(form.signatory.idProof), photoFile: keep(form.signatory.photo) },
   contacts: form.contacts.map((c: any) => ({ name: c.name, email: c.email, mobile: c.mobile, idProofFile: keep(c.idProof), photoFile: keep(c.photo) })),
   agreement: { agreementVersionId: v1.id, accepted: true },
+  legalConsent: true,
 });
 ok('resubmission goes straight back to Pending Manager', r.body.status === 'pending_manager', r.body);
 r = await miraB.call('GET', `/manager/applications/${a.id}`);

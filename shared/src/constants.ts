@@ -19,6 +19,8 @@ export const STATUSES = [
   'pending_manager',
   'rejected_by_manager',
   'approved',
+  // The applicant asked for their data to be erased; the application is closed for good.
+  'withdrawn',
 ] as const;
 export type ApplicationStatus = (typeof STATUSES)[number];
 
@@ -29,6 +31,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   pending_manager: 'Pending Manager',
   rejected_by_manager: 'Rejected by Manager',
   approved: 'Approved',
+  withdrawn: 'Withdrawn (data erased)',
 };
 
 export const FIRM_TYPES = [

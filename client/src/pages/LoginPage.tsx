@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useBranding } from '../branding/BrandingContext';
 import { ApiError } from '../api/client';
 import { BrandMark } from '../components/BrandMark';
+import { LegalFooter } from '../components/LegalFooter';
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -34,7 +35,8 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen flex-col">
+    <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandMark size={56} />
@@ -109,6 +111,8 @@ export function LoginPage() {
           </p>
         )}
       </div>
+    </div>
+    <LegalFooter />
     </div>
   );
 }

@@ -15,6 +15,8 @@ import { Alert, Field, Loading, PageHeader, SecondaryButton } from '../../compon
 
 type FormState = Record<keyof SettingsView, string>;
 
+const OPTIONAL_KEYS: string[] = ['supportEmail', 'supportPhone', 'registeredAddress', 'grievanceOfficerName', 'grievanceOfficerEmail'];
+
 const toForm = (s: SettingsView): FormState =>
   Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v === null ? '' : String(v)])) as FormState;
 
@@ -47,7 +49,7 @@ export function SettingsPage() {
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => f && { ...f, [key]: e.target.value });
 
   const input = (key: keyof FormState, label: string, opts: { type?: string; hint?: string; suffix?: string } = {}) => (
-    <Field label={label} required={!['supportEmail', 'supportPhone'].includes(key)} error={errors[key]} hint={opts.hint}>
+    <Field label={label} required={!OPTIONAL_KEYS.includes(key)} error={errors[key]} hint={opts.hint}>
       {(p) => (
         <div className="flex items-center gap-2">
           <input {...p} type={opts.type ?? 'text'} className="input" value={form[key]} onChange={set(key)} />
@@ -143,6 +145,12 @@ export function SettingsPage() {
           ))}
           {input('supportEmail', 'Support email', { type: 'email', hint: 'Shown in emails and error messages.' })}
           {input('supportPhone', 'Support phone')}
+        </Section>
+
+        <Section title="Legal and privacy" description="Shown in the Privacy Policy and Terms & Conditions. The Digital Personal Data Protection Act requires a published contact for privacy questions and complaints.">
+          {input('registeredAddress', 'Registered office address')}
+          {input('grievanceOfficerName', 'Grievance Officer name')}
+          {input('grievanceOfficerEmail', 'Grievance Officer email', { type: 'email', hint: 'If empty, the support email is shown instead.' })}
         </Section>
 
         <Section title="Agreement">

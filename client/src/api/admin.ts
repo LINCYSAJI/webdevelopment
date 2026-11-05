@@ -8,6 +8,9 @@ import type {
   HolidayView,
   InternalUserInput,
   ManagedRole,
+  DataRequestRow,
+  DataRequestStatus,
+  MyDataRequestView,
   Paginated,
   SettingsInput,
   SettingsView,
@@ -108,3 +111,16 @@ export const moveAssignments = (fromUserId: string, input: ReassignInput) =>
 
 export const reassignRegistration = (registrationId: string, input: ReassignInput) =>
   api<{ ok: true }>(`/admin/registrations/${registrationId}/reassign`, { method: 'POST', json: input });
+
+// ---------- Data deletion requests (DPDP Act) ----------
+
+export const listDataRequests = (params: { status?: DataRequestStatus; page: number }) => {
+  const q = new URLSearchParams({ page: String(params.page) });
+  if (params.status) q.set('status', params.status);
+  return api<Paginated<DataRequestRow>>(`/admin/data-requests?${q}`);
+};
+
+export const eraseDataRequest = (id: string) => api<{ status: 'completed' }>(`/admin/data-requests/${id}/erase`, { method: 'POST' });
+
+export const declineDataRequest = (id: string, note: string) =>
+  api<{ request: MyDataRequestView }>(`/admin/data-requests/${id}/decline`, { method: 'POST', json: { note } });

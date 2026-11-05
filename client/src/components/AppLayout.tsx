@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useBranding } from '../branding/BrandingContext';
 import { NAVIGATION } from '../navigation';
 import { BrandMark } from './BrandMark';
+import { LegalFooter } from './LegalFooter';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -77,9 +78,12 @@ export function AppLayout() {
           </div>
         )}
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">
-          <Outlet />
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="flex-1 p-4 sm:p-6">
+            <Outlet />
+          </main>
+          <LegalFooter />
+        </div>
       </div>
     </div>
   );

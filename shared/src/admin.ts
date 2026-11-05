@@ -84,6 +84,21 @@ export const settingsSchema = z
       .trim()
       .max(20)
       .transform((v) => v || null),
+    registeredAddress: z
+      .string()
+      .trim()
+      .max(300)
+      .transform((v) => v || null),
+    grievanceOfficerName: z
+      .string()
+      .trim()
+      .max(100)
+      .transform((v) => v || null),
+    grievanceOfficerEmail: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || z.string().email().safeParse(v).success, 'Enter a valid email address')
+      .transform((v) => v || null),
     agreementRefPrefix: z.string().trim().toUpperCase().regex(/^[A-Z]{2,6}$/, 'Use 2–6 capital letters'),
     otpExpiryMinutes: int(2, 60),
     otpResendCooldownSeconds: int(15, 600),

@@ -4,6 +4,7 @@ import type { PublicAgreementView, RegistrationInput, UploadLimits } from '@fap/
 import { getRegistrationForm, submitRegistration, uploadRegistrationFile } from '../api/public';
 import { useBranding } from '../branding/BrandingContext';
 import { BrandMark } from '../components/BrandMark';
+import { LegalFooter } from '../components/LegalFooter';
 import { RegistrationForm } from '../components/RegistrationForm';
 import { Alert, Loading } from '../components/ui';
 import { clearDraft, emptyForm, loadDraft, saveDraft } from '../lib/registrationForm';
@@ -44,7 +45,8 @@ export function RegisterPage() {
   const support = [supportEmail, supportPhone].filter(Boolean).join(' / ');
 
   return (
-    <div className="min-h-screen px-4 py-6 sm:py-8">
+    <div className="flex min-h-screen flex-col">
+    <div className="flex-1 px-4 py-6 sm:py-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-5 flex items-center gap-3">
           <Link to="/login" aria-label="Back to login">
@@ -96,6 +98,8 @@ export function RegisterPage() {
           />
         )}
       </div>
+    </div>
+    <LegalFooter />
     </div>
   );
 }

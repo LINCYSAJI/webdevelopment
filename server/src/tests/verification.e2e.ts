@@ -85,6 +85,7 @@ async function register(o: { pan: string; email: string; mobile: string; contact
     signatory: { name: 'Priya Sharma', capacity: 'Partner', email: o.email, mobile: o.mobile, idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) },
     contacts: [{ name: 'Ravi Kumar', email: o.contactEmail, mobile: o.contactMobile, idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) }],
     agreement: { agreementVersionId: v1.id, accepted: true },
+    legalConsent: true,
     acknowledgeDuplicates: !!o.acknowledge,
   });
   return r;

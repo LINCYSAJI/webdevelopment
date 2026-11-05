@@ -9,7 +9,7 @@
     "migrate": "tsx src/scripts/migrate.ts",
     "seed:dev": "tsx src/scripts/seed-dev.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts"
+    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts && tsx src/tests/privacy.e2e.ts"
   },
   "dependencies": {
     "@fap/shared": "*",

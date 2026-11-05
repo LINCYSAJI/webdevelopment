@@ -112,6 +112,7 @@ export async function openRegistrationDocument(registrationId: Types.ObjectId, d
   if (!mongoose.isValidObjectId(documentId)) throw new AppError(404, 'Document not found.', 'not_found');
   const doc = await RegistrationDocument.findOne({ _id: documentId, registrationId });
   if (!doc) throw new AppError(404, 'Document not found.', 'not_found');
+  if (doc.erasedAt) throw new AppError(410, "This file was erased at the applicant's request.", 'erased');
   const file = await storage.open(doc.storageKey);
   return { ...file, fileName: doc.fileName, mimeType: doc.mimeType };
 }
@@ -125,6 +126,7 @@ const HISTORY_TITLES: Record<string, string> = {
   accounts_rejected: 'Changes requested by Accounts',
   manager_approved: 'Final approval given',
   manager_rejected: 'Changes requested by Manager',
+  withdrawn_erased: 'Application withdrawn and personal data erased',
 };
 
 const ROLE_TEAM: Record<string, string> = { franchise_user: 'Applicant', accounts: 'Accounts Team', manager: 'Manager', admin: 'Admin' };

@@ -2,7 +2,7 @@
 
 | Item | Detail |
 |---|---|
-| Document version | 1.2 (agreement can be uploaded as a PDF, D15) |
+| Document version | 1.3 (Privacy Policy, Terms & Conditions, consent and Delete my account under the DPDP Act, D16) |
 | Date | 4 November 2026 |
 | Product owner | Lincy |
 | Source | "Franchise Online Agreement Portal – Business Requirements.pdf" plus the product owner's answers to the follow-up discovery questions |
@@ -60,6 +60,7 @@ These decisions came from the product owner's answers and override or extend the
 | D13 | Branding | The organisation's logo, colours and custom domain will be used. These details will be supplied later, so the build must make them easy to plug in |
 | D14 | Database | **MongoDB** replaces the Supabase stack recommended in the original PDF. The portal gets its own backend server (Node.js) for login, permissions, files, PDFs, emails and reminders (Section 15.1) |
 | D15 | Agreement as PDF | Admin can **upload the franchise agreement as a PDF** instead of typing it. This is the default for new versions; typed agreements with merge fields remain available. A PDF agreement is shown to applicants exactly as uploaded and is **not personalised** (merge fields apply to typed agreements only). Applicants' details appear in the final agreement PDF's details pages instead (Section 9.2) |
+| D16 | Indian legal compliance | The portal publishes a **Privacy Policy** (written as the notice required by the Digital Personal Data Protection Act, 2023 and DPDP Rules, 2025) and **Terms & Conditions** (Indian Contract Act 1872, IT Act 2000) at `/privacy-policy` and `/terms`, linked in the footer of every page. Registration and Edit & Resubmit require a separate mandatory consent checkbox; each consent is stored permanently with the policy versions, wording, time, IP and browser. Franchise Users can **request deletion of their account and data** from My Profile; Admin erases or declines (with a reason) in **Data Deletion Requests** (AD12). The registered address and Grievance Officer come from Settings |
 
 ## 4. Users and roles
 
@@ -169,6 +170,7 @@ There are four roles. **Only Admin can create Accounts and Manager users.** Publ
 | **Pending Manager** | Accounts approved, waiting for the Manager | Manager | View only |
 | **Rejected by Manager** | Manager rejected the application with a reason | Applicant | Edit and resubmit |
 | **Approved** | Final approval done and PDF generated | — | View only |
+| **Withdrawn** | Admin erased the applicant's data at their request (D16). Final; any status except Approved can move here | — | None |
 
 **Notes:**
 - **"Accounts Approved"** from the original PDF is recorded as a **history event**, not as a separate waiting status, because the application moves to the Manager immediately. On the applicant's screen, *Pending Manager* is labelled **"Accounts Approved – Awaiting Manager Approval"**.
@@ -275,6 +277,7 @@ Menu: **Dashboard · My Application · My Profile · Logout**
 - Shows the signatory's name, email and mobile.
 - **Change Password**.
 - **Change email or mobile**, which requires an OTP to the new value plus the current password. This is allowed only when the application is not under review.
+- **Delete my account and personal data** (D16): the user gives an optional reason, their current password and a confirmation tick. Only one request can be pending; it can be cancelled until Admin handles it. The user and every Admin are emailed. If the agreement is already approved, the user is told it must be kept by law (A25) but may still send the request.
 
 ### 7.3 Accounts screens
 
@@ -392,6 +395,12 @@ Menu: **Dashboard · Franchise Registrations · Duplicate Review · Approval Tra
 #### AD11. Settings
 See Section 14 for the full list.
 
+#### AD12. Data Deletion Requests (D16)
+- Tabs: Pending (oldest first), Data erased, Declined, Cancelled by user, All. Each row shows the applicant, application ID, firm, status and reason.
+- **Erase data** (permanent, confirmed in a dialog): closes the login and logs the user out everywhere; sets the application to **Withdrawn**; overwrites firm name, PAN, GST, signatory and contact details in the application and in **every submission version**; deletes every uploaded file from storage; removes the personalised agreement text, IP and browser from the acceptance records; clears the user's addresses from the notification log; releases the PAN/GST lock so the person can register again. The consent record, history and audit log are kept without personal details. A final confirmation email goes to the former address.
+- **Erase is refused for an approved agreement** (A25); Admin declines with a reason instead.
+- **Decline** requires a reason (10+ characters), which is emailed to the applicant with how to complain to the Data Protection Board of India.
+
 ---
 
 ## 8. Forms and fields
@@ -454,7 +463,8 @@ Contact persons are **not** OTP-verified. Only the signatory is verified (D5). E
 - The active agreement version is shown in a scrollable panel. A **PDF agreement** is shown page by page exactly as uploaded, with *Open in new tab* and *Download* links; this works on phones too. A **typed agreement** is **personalised with the details entered above**. Any merge fields that are still blank appear as highlighted "[Firm Name]" placeholders.
 - A version label is shown, for example "Agreement Version 3".
 - **Mandatory checkbox:** ☐ *"I have read and agree to all the terms and conditions mentioned in this franchise agreement."*
-- The **Register** button is disabled until the checkbox is ticked and the form is valid.
+- **Mandatory consent checkbox (D16):** ☐ *"I have read and agree to the [Terms & Conditions] and the [Privacy Policy]. I consent to my personal data, and that of the contact persons I have named (who know I am sharing it), being processed for the purposes described in the Privacy Policy."* Both links open in a new tab so the form is not lost.
+- The **Register** button is disabled until both checkboxes are ticked and the form is valid.
 
 ### 8.6 File upload rules
 
@@ -853,6 +863,10 @@ These are defaults the team will follow unless the product owner says otherwise.
 | A22 | The PDF uses the standard built-in fonts. Ordinary English letters, numbers and punctuation print normally; the rupee sign prints as "Rs." and characters from other scripts print as "?". A Unicode font can be added later if names or text in other scripts are needed |
 | A23 | For an uploaded (PDF) agreement, each uploaded page is placed unchanged on an A4 page, scaled down slightly if needed, so the mandatory footer never covers its content |
 | A24 | Agreement emails sent from the portal are logged with recipient, subject, sender, time and status. In development, the test mailbox lists the attachment's name and size rather than storing the file |
+| A25 | An approved franchise agreement, and the details and documents it relies on, are kept for the franchise relationship plus **8 years** after it ends (tax / company law, legal claims), so its data cannot be erased on request. **To be confirmed by the owner's legal adviser** |
+| A26 | Deletion is a request that Admin handles (not instant), so the business can check legal retention first. The policy promises a reply normally within 30 days and always within 90 days |
+| A27 | The Privacy Policy and Terms & Conditions are fixed text in the portal (version 1.0, effective 05-11-2026), with the business name, registered address and Grievance Officer filled in from Settings. Changing the wording is a code change with a new version number. **Both documents should be reviewed by an Indian lawyer before go-live** |
+| A28 | Erasure is the one permitted exception to "records are permanent" and "stored files are never deleted": it overwrites personal details in submission versions and acceptance records and deletes uploaded files, as the DPDP Act requires. The audit log, history and consent record are kept as proof |
 
 ### 18.2 Open questions for the product owner
 

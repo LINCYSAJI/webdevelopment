@@ -26,6 +26,9 @@ import { ManagerListPage } from './pages/manager/ManagerListPage';
 import { ResubmitPage } from './pages/franchise/ResubmitPage';
 import { ProfilePage } from './pages/franchise/ProfilePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
+import { TermsPage } from './pages/legal/TermsPage';
+import { DataRequestsPage } from './pages/admin/DataRequestsPage';
 
 // Every screen not yet built, with the role allowed to open it.
 const plannedScreens = ROLES.flatMap((role) =>
@@ -44,6 +47,8 @@ export function App() {
       <Route path="/register/success" element={<ProtectedRoute roles={['franchise_user']}><RegistrationSuccessPage /></ProtectedRoute>} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       {import.meta.env.DEV && <Route path="/dev/mailbox" element={<DevMailboxPage />} />}
 
       <Route
@@ -75,6 +80,7 @@ export function App() {
         <Route path="admin/accounts-users" element={only('admin', <UsersPage key="accounts" role="accounts" />)} />
         <Route path="admin/manager-users" element={only('admin', <UsersPage key="manager" role="manager" />)} />
         <Route path="admin/audit-log" element={only('admin', <AuditLogPage />)} />
+        <Route path="admin/data-requests" element={only('admin', <DataRequestsPage />)} />
         <Route path="admin/settings" element={only('admin', <SettingsPage />)} />
 
         {plannedScreens.map((s) => (

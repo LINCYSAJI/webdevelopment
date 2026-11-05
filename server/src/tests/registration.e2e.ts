@@ -101,6 +101,7 @@ const valid = async (over: Record<string, unknown> = {}) => ({
     { name: "Anu D'Souza", email: 'anu@example.com', mobile: '8123456789', idProofFile: await token('document', PDF), photoFile: await token('photo', JPG) },
   ],
   agreement: { agreementVersionId: v1.id, accepted: true },
+  legalConsent: true,
   ...over,
 });
 
@@ -113,9 +114,10 @@ r = await submit({
   signatory: { ...bad.signatory, email: 'not-an-email', mobile: '5123456789', name: 'P1' },
   contacts: [{ ...bad.contacts[0], idProofFile: '' }],
   agreement: { agreementVersionId: v1.id, accepted: false },
+  legalConsent: false,
 });
 const f = r.body.error?.fields ?? {};
-ok('invalid form refused with messages per field', r.status === 400 && !!f.pan && !!f['signatory.email'] && !!f['signatory.mobile'] && !!f['signatory.name'] && !!f['contacts.0.idProofFile'] && !!f['agreement.accepted'], f);
+ok('invalid form refused with messages per field', r.status === 400 && !!f.pan && !!f['signatory.email'] && !!f['signatory.mobile'] && !!f['signatory.name'] && !!f['contacts.0.idProofFile'] && !!f['agreement.accepted'] && !!f.legalConsent, f);
 ok('PAN message is specific', f.pan?.[0] === 'PAN must be 10 characters like ABCDE1234F', f.pan);
 r = await submit({ ...(await valid()), gst: '29ABCDE9999F1Z5' });
 ok('GST not matching PAN refused', r.status === 400 && r.body.error.fields.gst?.[0] === 'GST number does not belong to the PAN entered', r.body);
@@ -138,6 +140,8 @@ ok('8 documents stored (PAN, GST, signatory x2, contacts x4)', docs.length === 8
 const snap = await SubmissionVersion.findOne({ registrationId: reg!._id });
 ok('submission version 1 snapshot with document references', snap?.version === 1 && !!snap.data.panDocumentId && snap.data.contacts.length === 2 && !!snap.data.contacts[1].photoDocumentId);
 const acc = await AgreementAcceptance.findOne({ registrationId: reg!._id });
+const consent = await mongoose.connection.db!.collection('consentrecords').findOne({ registrationId: reg!._id });
+ok('Terms & Privacy consent saved with versions, wording and time', consent?.termsVersion === '1.0' && consent.privacyVersion === '1.0' && /Privacy Policy/.test(consent.text) && !!consent.acceptedAt, consent);
 ok('agreement acceptance saved with version, time and PDF fingerprint', acc?.versionNumber === 1 && !!acc.acceptedAt && !!acc.snapshot?.pdfSha256 && acc.submissionVersion === 1);
 r = await submit(good);
 ok('the same uploaded files cannot be used twice', r.status === 400 && r.body.error.code === 'upload_missing', r.body);

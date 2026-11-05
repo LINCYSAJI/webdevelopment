@@ -10,6 +10,9 @@ const DEFAULT_BRANDING: Branding = {
   secondaryColor: '#0ea5e9',
   supportEmail: null,
   supportPhone: null,
+  registeredAddress: null,
+  grievanceOfficerName: null,
+  grievanceOfficerEmail: null,
 };
 
 /** "#1e3a8a" -> "30 58 138", the format Tailwind's brand colour expects. */

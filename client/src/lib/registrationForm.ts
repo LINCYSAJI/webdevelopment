@@ -134,7 +134,7 @@ export function formFromSubmission(s: SubmissionView, urlFor: (id: string) => st
 // ---------- Sending ----------
 
 /** Builds what is sent to the server. Contact 1 copies the signatory when "Same as" is ticked. */
-export function toPayload(form: FormState, agreementId: string, accepted: boolean, acknowledgeDuplicates: boolean): RegistrationInput {
+export function toPayload(form: FormState, agreementId: string, accepted: boolean, legalConsent: boolean, acknowledgeDuplicates: boolean): RegistrationInput {
   const s = form.signatory;
   return {
     franchiseModel: form.franchiseModel,
@@ -159,6 +159,7 @@ export function toPayload(form: FormState, agreementId: string, accepted: boolea
         : { name: c.name, email: c.email, mobile: c.mobile, idProofFile: c.idProof?.token ?? '', photoFile: c.photo?.token ?? '' },
     ),
     agreement: { agreementVersionId: agreementId, accepted: accepted as true },
+    legalConsent: legalConsent as true,
     acknowledgeDuplicates,
   };
 }

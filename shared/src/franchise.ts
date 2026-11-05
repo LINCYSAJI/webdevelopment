@@ -85,6 +85,7 @@ export const APPLICANT_STATUS_TEXT: Record<ApplicationStatus, { label: string; e
   },
   rejected_by_manager: { label: 'Changes Requested by Manager', explanation: 'Our Manager has asked for some changes. Please see the reason below.' },
   approved: { label: 'Approved', explanation: 'Your franchise application has been approved.' },
+  withdrawn: { label: 'Withdrawn', explanation: 'This application was withdrawn and its personal data erased at your request.' },
 };
 
 export interface ApplicationDocumentView {

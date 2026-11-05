@@ -1,15 +1,28 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { changePasswordSchema, contactChangeStartSchema, toFieldErrors, type ContactKind } from '@fap/shared';
+import { Link } from 'react-router-dom';
+import {
+  AGREEMENT_RETENTION_YEARS,
+  LEGAL_DOCUMENTS,
+  changePasswordSchema,
+  contactChangeStartSchema,
+  dataDeletionRequestSchema,
+  formatDateIST,
+  formatDateTimeIST,
+  toFieldErrors,
+  type ContactKind,
+  type DataDeletionRequestInput,
+  type MyDataRequestView,
+} from '@fap/shared';
 import { changePassword } from '../../api/auth';
 import { ApiError } from '../../api/client';
-import { confirmContactChange, getMyApplication, startContactChange } from '../../api/franchise';
+import { cancelAccountDeletion, confirmContactChange, getMyApplication, getMyDeletionRequest, requestAccountDeletion, startContactChange } from '../../api/franchise';
 import { useAuth } from '../../auth/AuthContext';
 import { Detail } from '../../components/ApplicationBits';
 import { OtpBox } from '../../components/OtpBox';
 import { PasswordRules } from '../../components/PasswordRules';
 import { Alert, Field, Loading, PageHeader, SecondaryButton } from '../../components/ui';
 
-/** F4: the signatory's details, Change Password, and Change email / mobile with a code. */
+/** F4: the signatory's details, Change Password, Change email / mobile with a code, and Delete my account. */
 export function ProfilePage() {
   const { user } = useAuth();
   const [canChange, setCanChange] = useState<boolean | null>(null);
@@ -53,6 +66,8 @@ export function ProfilePage() {
           </p>
         )}
       </section>
+
+      <DeleteAccountCard />
     </div>
   );
 }
@@ -203,5 +218,154 @@ function ContactChange({ kind }: { kind: ContactKind }) {
         {busy ? 'Sending code…' : 'Send code'}
       </button>
     </form>
+  );
+}
+
+/** "Delete my account": the applicant's right to erasure and to withdraw consent (DPDP Act s.12, s.6(4)). */
+function DeleteAccountCard() {
+  const [state, setState] = useState<{ request: MyDataRequestView | null; eraseBlockedReason: string | null } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ reason: '', currentPassword: '', confirm: false });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getMyDeletionRequest()
+      .then(setState)
+      .catch(() => setError('Could not load your deletion request status. Please refresh the page.'));
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const parsed = dataDeletionRequestSchema.safeParse(form);
+    if (!parsed.success) {
+      setErrors(toFieldErrors(parsed.error));
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    try {
+      const request = await requestAccountDeletion(form as DataDeletionRequestInput);
+      setState((s) => ({ eraseBlockedReason: s?.eraseBlockedReason ?? null, request }));
+      setOpen(false);
+      setForm({ reason: '', currentPassword: '', confirm: false });
+    } catch (err) {
+      if (err instanceof ApiError && err.fields) setErrors(Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [k, v[0]])));
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const request = await cancelAccountDeletion();
+      setState((s) => ({ eraseBlockedReason: s?.eraseBlockedReason ?? null, request }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const request = state?.request ?? null;
+  const pending = request?.status === 'pending';
+
+  return (
+    <section className="card space-y-3 border-red-200" aria-labelledby="delete-account-heading">
+      <h2 id="delete-account-heading" className="font-semibold text-slate-900">
+        Delete my account and personal data
+      </h2>
+      <p className="text-sm text-slate-600">
+        You can ask us to close your account and erase your personal data at any time. This also withdraws your consent. See{' '}
+        <Link to={`${LEGAL_DOCUMENTS.privacy.path}#your-rights`} className="font-medium text-brand underline">
+          your rights in our Privacy Policy
+        </Link>
+        .
+      </p>
+
+      {error && <Alert tone="error">{error}</Alert>}
+      {!state && !error && <Loading />}
+
+      {state && pending && request && (
+        <>
+          <Alert tone="info">
+            We received your request on {formatDateTimeIST(request.requestedAt)}. Our team will review it and reply by email, normally within 30 days. You
+            can cancel it until it is processed.
+          </Alert>
+          <SecondaryButton type="button" onClick={() => void cancel()} disabled={busy}>
+            {busy ? 'Cancelling…' : 'Cancel my request'}
+          </SecondaryButton>
+        </>
+      )}
+
+      {state && !pending && (
+        <>
+          {request?.status === 'declined' && (
+            <Alert tone="warning">
+              Your request of {formatDateIST(request.requestedAt)} was declined: {request.decisionNote}
+            </Alert>
+          )}
+          {state.eraseBlockedReason && (
+            <Alert tone="warning">
+              Your franchise agreement has been approved. The law requires us to keep the signed agreement and the details in it for as long as the
+              franchise relationship lasts and {AGREEMENT_RETENTION_YEARS} years after it ends. You can still send a request and we will reply explaining
+              what we can erase.
+            </Alert>
+          )}
+
+          {!open ? (
+            <button type="button" className="btn-danger" onClick={() => setOpen(true)}>
+              Delete my account…
+            </button>
+          ) : (
+            <form onSubmit={submit} className="space-y-4 rounded-md border border-red-200 bg-red-50/40 p-4" noValidate>
+              <div className="text-sm text-slate-700">
+                <p className="font-medium text-slate-900">If we approve your request:</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  <li>your login is closed and you are logged out everywhere;</li>
+                  <li>your application is withdrawn and can no longer be reviewed or approved;</li>
+                  <li>your details, your contact persons’ details and all uploaded documents are erased;</li>
+                  <li>we keep only what the law requires (a record of your consent, security logs, and any approved agreement).</li>
+                </ul>
+                <p className="mt-2">This cannot be undone. To apply again later, you would need to register afresh.</p>
+              </div>
+              <Field label="Reason (optional)" error={errors.reason}>
+                {(a) => <textarea {...a} rows={3} maxLength={1000} className="input" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />}
+              </Field>
+              <Field label="Current Password" required error={errors.currentPassword}>
+                {(a) => (
+                  <input
+                    {...a}
+                    type="password"
+                    className="input"
+                    autoComplete="current-password"
+                    value={form.currentPassword}
+                    onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+                  />
+                )}
+              </Field>
+              <label className="flex items-start gap-3 text-sm text-slate-800">
+                <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.checked })} />
+                <span>I understand that my account will be closed and my personal data erased, and that this cannot be undone.</span>
+              </label>
+              {errors.confirm && <p className="text-sm text-red-700">{errors.confirm}</p>}
+              <div className="flex flex-wrap gap-2">
+                <button type="submit" className="btn-danger" disabled={busy}>
+                  {busy ? 'Sending…' : 'Request deletion'}
+                </button>
+                <SecondaryButton type="button" onClick={() => setOpen(false)}>
+                  Keep my account
+                </SecondaryButton>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </section>
   );
 }

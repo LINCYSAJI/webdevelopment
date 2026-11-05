@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { config } from '../config';
@@ -7,13 +7,17 @@ import { config } from '../config';
 /**
  * Private file storage. Files are never reachable by a public link: the API checks
  * permissions and then streams them. Only metadata and the storage key live in MongoDB.
- * Stored files are never overwritten or deleted, so earlier versions always stay available.
+ * Stored files are never overwritten, and deleted only when an applicant's personal data is
+ * erased at their request (DPDP Act s.12, see data-request.service.ts), so earlier versions
+ * otherwise always stay available.
  */
 export interface StorageProvider {
   put(key: string, data: Buffer): Promise<void>;
   open(key: string): Promise<{ stream: Readable; size: number }>;
   /** Reads a whole file into memory (for files that are processed, e.g. merged into a PDF). */
   read(key: string): Promise<Buffer>;
+  /** Permanently deletes a file. Used ONLY by the DPDP erasure of an applicant's data. */
+  remove(key: string): Promise<void>;
 }
 
 class LocalStorage implements StorageProvider {
@@ -33,6 +37,10 @@ class LocalStorage implements StorageProvider {
 
   async read(key: string) {
     return readFile(this.resolve(key));
+  }
+
+  async remove(key: string) {
+    await rm(this.resolve(key), { force: true });
   }
 
   async open(key: string) {

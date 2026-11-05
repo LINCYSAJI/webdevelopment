@@ -23,6 +23,7 @@ import { getSettings } from '../models/Settings';
 import { SubmissionVersion } from '../models/SubmissionVersion';
 import { User, type UserDocument } from '../models/User';
 import { getVersion as getAgreementVersion, recordAcceptance } from './agreement.service';
+import { recordConsent } from './consent.service';
 import { toSubmissionView } from './application-view.service';
 import { audit } from './audit.service';
 import { sendEmail } from './email.service';
@@ -226,6 +227,8 @@ export async function resubmit(user: UserDocument, input: RegistrationData, ctx:
         },
         session,
       );
+
+      await recordConsent({ registrationId: reg._id, userId: user._id, submissionVersion: version, acceptedAt: now, ip: ctx.ip, userAgent: ctx.userAgent }, session);
 
       if (newMatches.length) {
         if (openFlag) await DuplicateFlag.updateOne({ _id: openFlag._id }, { $push: { matches: { $each: newMatches } } }, { session });

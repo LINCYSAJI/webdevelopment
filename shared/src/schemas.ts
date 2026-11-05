@@ -25,4 +25,8 @@ export interface Branding {
   secondaryColor: string;
   supportEmail: string | null;
   supportPhone: string | null;
+  /** Legal details shown in the Privacy Policy and Terms & Conditions. */
+  registeredAddress: string | null;
+  grievanceOfficerName: string | null;
+  grievanceOfficerEmail: string | null;
 }

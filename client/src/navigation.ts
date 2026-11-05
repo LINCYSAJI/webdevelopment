@@ -38,6 +38,7 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
     { label: 'Accounts Users', path: '/app/admin/accounts-users' },
     { label: 'Manager Users', path: '/app/admin/manager-users' },
     { label: 'Audit Log', path: '/app/admin/audit-log' },
+    { label: 'Data Deletion Requests', path: '/app/admin/data-requests' },
     { label: 'Settings', path: '/app/admin/settings' },
   ],
 };

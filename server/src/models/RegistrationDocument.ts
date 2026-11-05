@@ -20,6 +20,8 @@ const registrationDocumentSchema = new Schema({
   size: { type: Number, required: true },
   sha256: { type: String, required: true },
   uploadedAt: { type: Date, required: true },
+  // Set when the applicant's personal data was erased at their request (DPDP Act s.12).
+  erasedAt: { type: Date },
 });
 appendOnly(registrationDocumentSchema, 'Registration documents');
 

@@ -3,6 +3,8 @@ import { z } from 'zod';
 import {
   MANAGED_ROLES,
   agreementDraftSchema,
+  dataRequestDeclineSchema,
+  dataRequestListQuerySchema,
   holidaySchema,
   internalUserSchema,
   reassignSchema,
@@ -14,6 +16,7 @@ import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
+import * as dataRequests from '../services/data-request.service';
 import { listAuditActions, listAuditLogs } from '../services/audit.service';
 import * as settings from '../services/settings.service';
 import * as users from '../services/users.service';
@@ -236,5 +239,31 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     await workflow.reassign(req.params.id, req.body, actor(req));
     res.json({ ok: true });
+  }),
+);
+
+// ---------- Data deletion requests (DPDP Act s.12) ----------
+
+adminRouter.get(
+  '/data-requests',
+  asyncHandler(async (req, res) => {
+    const query = dataRequestListQuerySchema.safeParse(req.query);
+    if (!query.success) throw new AppError(400, 'Invalid filter.', 'validation');
+    res.json(await dataRequests.listRequests(query.data));
+  }),
+);
+
+adminRouter.post(
+  '/data-requests/:id/erase',
+  asyncHandler(async (req, res) => {
+    res.json(await dataRequests.eraseRequest(req.params.id, actor(req)));
+  }),
+);
+
+adminRouter.post(
+  '/data-requests/:id/decline',
+  validateBody(dataRequestDeclineSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ request: await dataRequests.declineRequest(req.params.id, req.body.note, actor(req)) });
   }),
 );

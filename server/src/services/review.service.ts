@@ -122,6 +122,9 @@ export async function buildReviewView(
   actions: ReviewApplicationView['actions'],
   opts: { forManager?: boolean } = {},
 ): Promise<ReviewApplicationView> {
+  if (reg.status === 'withdrawn') {
+    throw new AppError(410, "This application was withdrawn and its personal data erased at the applicant's request.", 'erased');
+  }
   const shownVersion = version && Number.isInteger(version) && version >= 1 && version <= reg.currentSubmissionVersion ? version : reg.currentSubmissionVersion;
   const [[row], versions, historyRows, acceptance, flags, generated] = await Promise.all([
     toRows([reg]),
