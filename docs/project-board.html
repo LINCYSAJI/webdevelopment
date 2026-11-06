@@ -340,19 +340,20 @@ tr:last-child td { border-bottom: 0; }
 // Edit only between the START and END markers. Everything below END is the page's code.
 // =====================================================================================
 const SYNC = {
-  date: '2026-11-05',
-  developmentHead: '9efe543',
-  developmentCommits: 19,
+  date: '2026-11-06',
+  developmentHead: '7c97724',
+  developmentCommits: 21,
   productionHead: '7c3cc7f',
   productionLabel: 'Initial commit: steps 1-4',
-  aheadOfProduction: 18,
+  aheadOfProduction: 20,
   remote: null,
   pushed: false,
-  tests: { suites: 7, passing: true, atCommit: '9efe543' },
+  tests: { suites: 8, passing: true, atCommit: '7c97724' },
   uncommittedAtSync: 0,
-  headline: 'Full browser walkthrough passed (41/41 steps) · Phase 8 next',
+  headline: 'Networkz SMS built and tested · waiting for your token, key and DLT wording',
 };
 const COMMITS = [
+  ['7c97724', '2026-11-06', 'SMS notifications through the Networkz Systems gateway'],
   ['9efe543', '2026-11-05', 'Add the recorded browser walkthrough (npm run walkthrough)'],
   ['2a8d181', '2026-11-05', 'Check the login without a failed request for logged-out visitors'],
   ['33db149', '2026-11-05', 'Add the project-board skill and keep the board in the repository'],
@@ -362,7 +363,6 @@ const COMMITS = [
   ['886e543', '2026-11-05', 'Step 5: Accounts review, Edit & Resubmit, reviewer handover'],
   ['06e6558', '2026-11-04', 'Cut database round trips on the verification page'],
   ['04c9665', '2026-11-04', 'Share file and duplicate-key helpers instead of copying them'],
-  ['f586b5d', '2026-11-04', 'Show auto-send failures on the verification page'],
 ];
 const STATUSES = [
   { key: 'planned', label: 'Planned', hint: 'Scoped for a later phase' },
@@ -447,6 +447,12 @@ const CARDS = [
   { t: 'Excel (CSV) exports', p: '7', s: 'test', a: 'Data', d: 'Follow the on-screen filters; PAN masked; every export audited.', r: 'AD2, AD5, A29' },
   { t: 'Agreement records for Admin', p: '7', s: 'test', a: 'Screen', d: 'Records and email history only; no PDF access (Q1 default).', r: 'AD6' },
   // Phase 8
+  { t: 'Networkz SMS gateway connection', p: '8', s: 'done', a: 'Infrastructure', d: 'Signed requests exactly as Networkz documents them; credentials only in server settings; live address checked.', r: 'D17' },
+  { t: 'SMS for OTP and five notifications', p: '8', s: 'test', a: 'Notification', d: 'OTP, registration successful, Accounts and Manager approval/rejection, agreement generated; never twice, never blocks the workflow.', r: 'D17' },
+  { t: 'Admin SMS Notifications screen', p: '8', s: 'test', a: 'Screen', d: 'Gateway status and wallet, on/off switch, DLT template editor with preview, test SMS, history and error log.', r: 'AD13' },
+  { t: 'SMS delivery status', p: '8', s: 'test', a: 'Notification', d: 'Checked from Networkz delivery reports on request; webhook ready for when the portal is online.', r: 'D17' },
+  { t: 'Add Networkz access token and key', p: '8', s: 'test', a: 'Review', d: 'Paste both into server/.env (never in chat or GitHub), set SMS_PROVIDER=networkz, restart.', r: 'D17', w: true },
+  { t: 'Enter DLT wording for each SMS', p: '8', s: 'test', a: 'Review', d: 'Approved wording for the OTP template, and a DLT template ID + wording for the other six messages.', r: 'A34', w: true },
   { t: 'Daily scheduled job (exactly once)', p: '8', s: 'notstarted', a: 'Infrastructure', d: 'Runs at 09:00 IST from Settings, only once even with several servers.', r: '§10.8' },
   { t: 'Business-day reminders', p: '8', s: 'notstarted', a: 'Notification', d: 'After 2 business days, then every 2, skipping weekends and holidays. Never changes a status.', r: 'N13' },
   { t: 'Overdue escalation to Admin', p: '8', s: 'notstarted', a: 'Notification', d: 'Alert after 5 business days.', r: 'N14' },
@@ -461,7 +467,8 @@ const CARDS = [
   { t: 'Live database on MongoDB Atlas', p: '9', s: 'planned', a: 'Infrastructure', d: 'Set up the live database with backups.', r: 'D14' },
   { t: 'Private file storage (S3)', p: '9', s: 'planned', a: 'Infrastructure', d: 'Replace local storage with a private bucket and short-lived links.', r: 'Rule 4' },
   { t: 'Choose and connect an email provider', p: '9', s: 'planned', a: 'Infrastructure', d: 'For example Resend, SendGrid or Amazon SES.', r: '§15', w: true },
-  { t: 'Choose and connect an SMS gateway', p: '9', s: 'planned', a: 'Infrastructure', d: 'Indian gateway with DLT-registered templates, for example MSG91.', r: '§15', w: true },
+  { t: 'Choose and connect an SMS gateway', p: '9', s: 'done', a: 'Infrastructure', d: 'Networkz Systems chosen and connected (sender NETSYS).', r: 'D17' },
+  { t: 'Connect the SMS delivery webhook', p: '9', s: 'planned', a: 'Infrastructure', d: 'Once the portal has a public address: create the webhook in the Networkz panel with the secret header.', r: 'D17', w: true },
   { t: 'Connect the code repository', p: '9', s: 'planned', a: 'Infrastructure', d: 'Push to development; protect production (reviewed pull requests only).', r: 'Git rule', w: true },
   { t: 'Security review and launch', p: '9', s: 'planned', a: 'Security', d: 'Final review, first reviewed merge to production, go live.', r: '' },
 ];
@@ -474,10 +481,13 @@ const SCREENS = [
   ['M1', 'Dashboard', 'Manager', '6'], ['M2', 'Pending Approvals', 'Manager', '6'], ['M3', 'Application Review', 'Manager', '6'], ['M4', 'Approved / Rejected', 'Manager', '6'], ['M5', 'Generated Agreements', 'Manager', '6'],
   ['AD1', 'Dashboard', 'Admin', '7'], ['AD2', 'Franchise Registrations', 'Admin', '7'], ['AD3', 'Duplicate Review', 'Admin', '7'], ['AD4', 'Approval Tracking', 'Admin', '7'],
   ['AD5', 'Approved / Rejected Applications', 'Admin', '7'], ['AD6', 'Generated Agreements (records)', 'Admin', '7'], ['AD7', 'Agreement Content', 'Admin', '2'], ['AD8', 'Accounts Users', 'Admin', '2'],
-  ['AD9', 'Manager Users', 'Admin', '2'], ['AD10', 'Audit Log', 'Admin', '2'], ['AD11', 'Settings', 'Admin', '2'], ['AD12', 'Data Deletion Requests', 'Admin', 'L'],
+  ['AD9', 'Manager Users', 'Admin', '2'], ['AD10', 'Audit Log', 'Admin', '2'], ['AD11', 'Settings', 'Admin', '2'], ['AD12', 'Data Deletion Requests', 'Admin', 'L'], ['AD13', 'SMS Notifications', 'Admin', '8'],
 ];
 
 const ACTIONS = [
+  ['Add the Networkz access token AND its key to server/.env', 'Both are on Networkz › Manage › API Access Tokens; then set SMS_PROVIDER=networkz and restart', 'Before live SMS'],
+  ['Enter the DLT wording for each SMS', 'Admin › SMS Notifications: OTP wording, plus template ID + wording for the other six messages', 'Before live SMS'],
+  ['Send a test SMS', 'Admin › SMS Notifications › Send a test SMS, to your own number', 'After the two above'],
   ['Watch portal-walkthrough.mp4', 'The recorded run of every main flow, in the project folder', 'Now'],
   ['Send the code repository address', 'So the work can be pushed to development', 'Any time'],
   ['Fill in Settings → Legal and privacy', 'Registered address, Grievance Officer name and email', 'Before go-live'],
@@ -496,6 +506,7 @@ const QUESTIONS = [
   ['Q6', 'Must an Authorised Representative upload an authorisation letter?', 'Not required'],
 ];
 const DEFAULTS = [
+  ['A34', 'Messages without an approved DLT template are not sent (logged as skipped); the OTP is always on.'],
   ['A21', 'The Manager also cannot approve while a duplicate is open; reject still works.'],
   ['A22', 'PDF uses standard fonts: ₹ prints as "Rs." and other scripts as "?".'],
   ['A25', 'Approved agreements are kept for the relationship plus 8 years and cannot be erased on request.'],
