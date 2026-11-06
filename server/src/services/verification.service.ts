@@ -12,6 +12,7 @@ import { getSettings } from '../models/Settings';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
 import { hashPassword, issueTokens, type ClientInfo } from './auth.service';
+import { notifyApplicantBySms } from './sms.service';
 import { sendEmail } from './email.service';
 import {
   applicationSubmittedEmail,
@@ -181,6 +182,7 @@ async function notifySubmitted(reg: RegistrationDocument, applicationId: string,
       jobs.push(make(u.name, applicationId, firm, url).then((m) => sendEmail({ to: u.email, event: 'application_submitted', ...m })));
     }
     await Promise.allSettled(jobs);
+    await notifyApplicantBySms('registration_submitted', { ...reg.toObject(), _id: reg._id, applicationId }, { dedupe: 'once' });
     if (flagged) {
       const flag = await DuplicateFlag.findOne({ registrationId: reg._id, status: 'open' });
       await notifyAdminsOfDuplicate(applicationId, firm, (flag?.matches ?? []).map((m) => m.field));

@@ -34,6 +34,7 @@ import { DuplicatesPage } from './pages/admin/DuplicatesPage';
 import { RegistrationsPage } from './pages/admin/RegistrationsPage';
 import { RejectedPage } from './pages/admin/RejectedPage';
 import { TrackingPage } from './pages/admin/TrackingPage';
+import { SmsPage } from './pages/admin/SmsPage';
 
 // Every screen not yet built, with the role allowed to open it.
 const plannedScreens = ROLES.flatMap((role) =>
@@ -94,6 +95,7 @@ export function App() {
         <Route path="admin/manager-users" element={only('admin', <UsersPage key="manager" role="manager" />)} />
         <Route path="admin/audit-log" element={only('admin', <AuditLogPage />)} />
         <Route path="admin/data-requests" element={only('admin', <DataRequestsPage />)} />
+        <Route path="admin/sms" element={only('admin', <SmsPage />)} />
         <Route path="admin/settings" element={only('admin', <SettingsPage />)} />
 
         {plannedScreens.map((s) => (

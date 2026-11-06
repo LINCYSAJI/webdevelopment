@@ -1,5 +1,10 @@
 import type {
   AdminDashboardView,
+  SmsEvent,
+  SmsLogRow,
+  SmsSettingsInput,
+  SmsSettingsView,
+  SmsStatusView,
   AgreementEmailLogView,
   DuplicateCaseRow,
   DuplicateComparisonView,
@@ -168,3 +173,15 @@ export const listDuplicateCases = () => api<{ items: DuplicateCaseRow[] }>('/adm
 export const getDuplicateComparison = (id: string) => api<{ comparison: DuplicateComparisonView }>(`/admin/duplicates/${id}`).then((r) => r.comparison);
 export const decideDuplicate = (id: string, decision: 'not-duplicate' | 'confirm', note: string) =>
   api<{ status: string }>(`/admin/duplicates/${id}/${decision}`, { method: 'POST', json: { note } });
+
+// ---------- SMS Notifications ----------
+
+export const getSmsStatus = () => api<{ status: SmsStatusView }>('/admin/sms/status').then((r) => r.status);
+export const getSmsSettings = () => api<{ settings: SmsSettingsView }>('/admin/sms/settings').then((r) => r.settings);
+export const saveSmsSettings = (settings: SmsSettingsInput) =>
+  api<{ settings: SmsSettingsView }>('/admin/sms/settings', { method: 'PUT', json: settings }).then((r) => r.settings);
+export const sendTestSms = (mobile: string, event: SmsEvent) =>
+  api<{ outcome: { ok: boolean; status: string; reason?: string } }>('/admin/sms/test', { method: 'POST', json: { mobile, event } }).then((r) => r.outcome);
+export const listSmsLogs = (params: URLSearchParams) => api<Paginated<SmsLogRow>>(`/admin/sms/logs?${toQuery(params)}`);
+export const refreshSmsDelivery = () =>
+  api<{ checked: number; updated: number; error: string | null }>('/admin/sms/logs/refresh-delivery', { method: 'POST' });

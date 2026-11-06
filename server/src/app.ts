@@ -11,6 +11,7 @@ import { franchiseRouter } from './routes/franchise.routes';
 import { managerRouter } from './routes/manager.routes';
 import { publicRouter } from './routes/public.routes';
 import { verificationRouter } from './routes/verification.routes';
+import { webhookRouter } from './routes/webhook.routes';
 
 export function createApp() {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp() {
   app.use('/api/admin', adminRouter);
   app.use('/api/accounts', accountsRouter);
   app.use('/api/manager', managerRouter);
+  app.use('/api/webhooks', webhookRouter);
   if (!config.isProduction) app.use('/api/dev', devRouter);
 
   app.use('/api', notFound);

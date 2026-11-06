@@ -26,6 +26,7 @@ import { User, type UserDocument } from '../models/User';
 import { buildAgreementPdf } from './agreement-pdf';
 import type { SubmissionSnapshot } from './application-view.service';
 import { audit } from './audit.service';
+import { notifyApplicantBySms } from './sms.service';
 import { sendEmail, sendEmailWithResult } from './email.service';
 import { agreementEmail, defaultAgreementEmailText, pdfGenerationFailedEmail } from './email-templates';
 
@@ -125,11 +126,13 @@ export async function generate(generatedId: mongoose.Types.ObjectId): Promise<Ge
       pageCount,
       generatedAt: new Date(),
     };
-    return await GeneratedAgreement.findOneAndUpdate(
+    const done = await GeneratedAgreement.findOneAndUpdate(
       { _id: claimed._id, status: 'pending' },
       { $set: { status: 'generated', file, error: null }, ...(claimed.file ? { $push: { previousFiles: claimed.file } } : {}) },
       { new: true },
     );
+    if (done) void notifyAgreementGeneratedSms(done);
+    return done;
   } catch (err) {
     console.error('Agreement PDF generation failed:', err);
     const message = err instanceof Error ? err.message.slice(0, 500) : 'Unknown error';
@@ -138,6 +141,12 @@ export async function generate(generatedId: mongoose.Types.ObjectId): Promise<Ge
     void notifyGenerationFailed(claimed);
     return failed;
   }
+}
+
+/** SMS to the applicant once the agreement PDF exists (sent at most once per application). */
+async function notifyAgreementGeneratedSms(g: GeneratedAgreementDocument) {
+  const reg = await Registration.findById(g.registrationId, { applicationId: 1, signatory: 1, currentSubmissionVersion: 1 }).catch(() => null);
+  if (reg) await notifyApplicantBySms('agreement_generated', reg, { referenceNo: g.referenceNumber, dedupe: 'once' });
 }
 
 async function notifyGenerationFailed(g: GeneratedAgreementDocument) {

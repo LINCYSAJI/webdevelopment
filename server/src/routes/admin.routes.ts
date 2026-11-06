@@ -1,10 +1,13 @@
 import express, { Router, type Request } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import {
   MANAGED_ROLES,
   agreementDraftSchema,
   dataRequestDeclineSchema,
   duplicateDecisionSchema,
+  smsSettingsSchema,
+  smsTestSchema,
   dataRequestListQuerySchema,
   holidaySchema,
   internalUserSchema,
@@ -18,12 +21,13 @@ import { sendCsv } from '../lib/csv';
 import { AppError, asyncHandler } from '../lib/errors';
 import { sendFile } from '../lib/send-file';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { validateBody } from '../middleware/validate';
+import { validateBody, validateBodyDetailed } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
 import * as dataRequests from '../services/data-request.service';
 import * as duplicates from '../services/duplicate.service';
 import * as generated from '../services/generated-agreement.service';
 import * as oversight from '../services/oversight.service';
+import * as smsAdmin from '../services/sms-admin.service';
 import { listAuditActions, listAuditLogs } from '../services/audit.service';
 import * as settings from '../services/settings.service';
 import * as users from '../services/users.service';
@@ -394,5 +398,60 @@ adminRouter.post(
   validateBody(duplicateDecisionSchema),
   asyncHandler(async (req, res) => {
     res.json(await duplicates.confirmFlag(req.params.id, req.body.note, actor(req)));
+  }),
+);
+
+// ---------- SMS Notifications (Networkz gateway) ----------
+
+const smsTestLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many test messages. Please wait a few minutes.' } },
+});
+
+adminRouter.get(
+  '/sms/status',
+  asyncHandler(async (_req, res) => {
+    res.json({ status: await smsAdmin.status() });
+  }),
+);
+
+adminRouter.get(
+  '/sms/settings',
+  asyncHandler(async (_req, res) => {
+    res.json({ settings: await smsAdmin.getSettingsView() });
+  }),
+);
+
+adminRouter.put(
+  '/sms/settings',
+  validateBodyDetailed(smsSettingsSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ settings: await smsAdmin.updateSettings(req.body, actor(req)) });
+  }),
+);
+
+adminRouter.post(
+  '/sms/test',
+  smsTestLimiter,
+  validateBodyDetailed(smsTestSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ outcome: await smsAdmin.sendTest(req.body.mobile, req.body.event, actor(req)) });
+  }),
+);
+
+adminRouter.get(
+  '/sms/logs',
+  asyncHandler(async (req, res) => {
+    res.json(await smsAdmin.listLogs(req.query));
+  }),
+);
+
+adminRouter.post(
+  '/sms/logs/refresh-delivery',
+  asyncHandler(async (req, res) => {
+    res.json(await smsAdmin.refreshDelivery(actor(req)));
   }),
 );

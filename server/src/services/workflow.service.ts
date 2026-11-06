@@ -10,6 +10,7 @@ import { RegistrationHistory } from '../models/RegistrationHistory';
 import { getSettings } from '../models/Settings';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
+import { notifyApplicantBySms } from './sms.service';
 import { sendEmail } from './email.service';
 import {
   accountsApprovedApplicantEmail,
@@ -233,6 +234,7 @@ async function notifyFinalApproval(reg: RegistrationDocument, referenceNumber: s
       jobs.push(finalApprovalAdminEmail(u.name, appId, reg.firmName, referenceNumber, pdfReady, portalUrl()).then((m) => sendEmail({ to: u.email, event: 'manager_approved', ...m })));
     }
     await Promise.allSettled(jobs);
+    await notifyApplicantBySms('manager_approved', reg, { referenceNo: referenceNumber, dedupe: 'once' });
   } catch (err) {
     console.error('Could not send final approval notifications:', err);
   }
@@ -303,6 +305,7 @@ async function notifyAccountsApproved(reg: RegistrationDocument) {
       jobs.push(awaitingManagerEmail(u.name, appId, reg.firmName, portalUrl(), u.role === 'admin').then((m) => sendEmail({ to: u.email, event: 'accounts_approved', ...m })));
     }
     await Promise.allSettled(jobs);
+    await notifyApplicantBySms('accounts_approved', reg, { dedupe: 'per_version' });
   } catch (err) {
     console.error('Could not send approval notifications:', err);
   }
@@ -319,6 +322,7 @@ export async function notifyRejected(reg: RegistrationDocument, stage: 'Accounts
       jobs.push(rejectedAdminEmail(u.name, appId, reg.firmName, stage, reason, portalUrl()).then((m) => sendEmail({ to: u.email, event, ...m })));
     }
     await Promise.allSettled(jobs);
+    await notifyApplicantBySms(event, reg, { dedupe: 'per_version' });
   } catch (err) {
     console.error('Could not send rejection notifications:', err);
   }

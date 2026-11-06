@@ -21,6 +21,7 @@ import { Otp } from '../models/Otp';
 import { Registration, type RegistrationDocument as RegistrationDoc } from '../models/Registration';
 import { RegistrationDocument } from '../models/RegistrationDocument';
 import { RegistrationHistory } from '../models/RegistrationHistory';
+import { SmsLog } from '../models/SmsLog';
 import { SubmissionVersion } from '../models/SubmissionVersion';
 import { User, type UserDocument } from '../models/User';
 import { audit } from './audit.service';
@@ -303,6 +304,10 @@ export async function eraseRequest(id: string, actor: Actor) {
   }
   // Finally remove the applicant's addresses from the delivery log (including the email just sent).
   await NotificationLog.updateMany({ recipient: { $in: identifiers } }, { $set: { recipient: ERASED } });
+  await SmsLog.updateMany(
+    { $or: [{ recipient: { $in: identifiers } }, ...(reg ? [{ registrationId: reg._id }] : [])] },
+    { $set: { recipient: ERASED, text: ERASED } },
+  );
 
   return { status: 'completed' as const };
 }

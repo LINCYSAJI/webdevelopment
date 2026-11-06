@@ -10,9 +10,23 @@ const envSchema = z.object({
   // Real providers are added in build step 9. `dev_outbox` stores emails in the database
   // and shows them on the development mailbox page; it is refused in production.
   EMAIL_PROVIDER: z.enum(['dev_outbox']).default('dev_outbox'),
-  // SMS (mobile OTP only). `dev_outbox` shows messages in the test mailbox; a DLT-registered
-  // Indian SMS gateway is added in build step 9. Refused in production.
-  SMS_PROVIDER: z.enum(['dev_outbox']).default('dev_outbox'),
+  // SMS. `dev_outbox` shows messages in the test mailbox (refused in production);
+  // `networkz` sends through the Networkz Systems gateway with DLT-registered templates.
+  SMS_PROVIDER: z.enum(['dev_outbox', 'networkz']).default('dev_outbox'),
+  // Networkz Systems gateway (https://message.networkzsystems.com). The token and its key are
+  // secrets: keep them in .env only. Entity ID and sender ID come from your DLT registration.
+  NETWORKZ_SMS_BASE_URL: z.string().url().default('https://message.networkzsystems.com'),
+  NETWORKZ_SMS_ACCESS_TOKEN: z.string().trim().optional(),
+  NETWORKZ_SMS_ACCESS_TOKEN_KEY: z.string().trim().optional(),
+  NETWORKZ_SMS_ENTITY_ID: z.string().trim().optional(),
+  NETWORKZ_SMS_SENDER_ID: z.string().trim().optional(),
+  NETWORKZ_SMS_ROUTE: z.enum(['transactional', 'promotional']).default('transactional'),
+  // 1 = the gateway checks each message against the DLT templates listed in its panel.
+  NETWORKZ_SMS_TEMPLATE_MATCHING: z.enum(['0', '1']).default('0'),
+  // Optional delivery webhook: the webhook ID from the Networkz panel, and a secret sent by the
+  // panel in the "X-Webhook-Secret" header so only Networkz can post delivery updates.
+  NETWORKZ_SMS_WEBHOOK_ID: z.string().trim().optional(),
+  NETWORKZ_SMS_WEBHOOK_SECRET: z.string().trim().optional(),
   // Private file storage. `local` keeps files in a folder on this computer (development only);
   // the private S3-compatible bucket is added in build step 9.
   STORAGE_PROVIDER: z.enum(['local']).default('local'),

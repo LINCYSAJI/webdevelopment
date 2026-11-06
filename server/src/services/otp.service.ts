@@ -8,7 +8,7 @@ import { OtpThrottle } from '../models/OtpThrottle';
 import { getSettings } from '../models/Settings';
 import { sendEmail } from './email.service';
 import { otpEmail } from './email-templates';
-import { sendSms } from './sms.service';
+import { sendOtpSms } from './sms.service';
 
 /** At most this many codes per hour for one person and channel: the first plus 5 resends (PRD 10.3). */
 const MAX_CODES_PER_HOUR = 6;
@@ -104,11 +104,7 @@ export async function issueOtp(subject: OtpSubject, target: string, emailPurpose
   const sent =
     subject.channel === 'email'
       ? await sendEmail({ to: target, event: `${subject.purpose}_otp`, ...(await otpEmail(code, settings.otpExpiryMinutes, emailPurpose)) })
-      : await sendSms({
-          to: target,
-          event: `${subject.purpose}_otp`,
-          text: `${code} is your ${settings.organisationName} verification code. It is valid for ${settings.otpExpiryMinutes} minutes. Do not share it with anyone.`,
-        });
+      : await sendOtpSms(target, code, settings.otpExpiryMinutes);
 
   if (!sent) {
     // The undelivered code is cancelled; the previous code (if any) still works.
