@@ -4,6 +4,8 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 const rs = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
 process.env.NODE_ENV = 'test';
+// Never use a real SMS gateway from server/.env in tests: every text goes to the test mailbox.
+process.env.SMS_PROVIDER = 'dev_outbox';
 process.env.MONGODB_URI = rs.getUri('otp_test');
 process.env.JWT_ACCESS_SECRET ??= 'x'.repeat(40);
 

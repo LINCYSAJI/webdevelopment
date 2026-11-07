@@ -11,6 +11,8 @@ import { PDFDocument } from 'pdf-lib';
 const storageDir = mkdtempSync(path.join(tmpdir(), 'fap-test-'));
 const rs = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
 process.env.NODE_ENV = 'test';
+// Never use a real SMS gateway from server/.env in tests: every text goes to the test mailbox.
+process.env.SMS_PROVIDER = 'dev_outbox';
 process.env.MONGODB_URI = rs.getUri('registration_test');
 process.env.LOCAL_STORAGE_DIR = storageDir;
 process.env.JWT_ACCESS_SECRET ??= 'x'.repeat(40);
