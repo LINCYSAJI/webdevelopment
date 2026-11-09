@@ -35,8 +35,24 @@ interface Result {
 const results: Result[] = [];
 const extraChecks: { check: string; ok: boolean; detail?: string }[] = [];
 
+const MAX_PER_PAGE = 20;
+
 function watch(page: Page) {
-  const problems: string[] = [];
+  const list: string[] = [];
+  let dropped = 0;
+  // Capped, so a page that floods the console cannot exhaust memory (the flood is itself reported).
+  const problems = {
+    push(p: string) {
+      if (list.length < MAX_PER_PAGE) list.push(p);
+      else if (++dropped === 1) list.push('… many more errors (page keeps logging errors)');
+    },
+    get length() {
+      return list.length;
+    },
+    slice(n: number) {
+      return list.slice(n);
+    },
+  };
   page.on('console', (m) => {
     if (m.type() === 'error') problems.push(`console: ${m.text().slice(0, 200)}`);
   });
@@ -52,6 +68,7 @@ function watch(page: Page) {
   });
   return problems;
 }
+type Problems = ReturnType<typeof watch>;
 
 async function settle(page: Page) {
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
@@ -59,7 +76,7 @@ async function settle(page: Page) {
   await page.waitForTimeout(300);
 }
 
-async function inspect(page: Page, role: string, screen: string, url: string, viewport: string, problems: string[]) {
+async function inspect(page: Page, role: string, screen: string, url: string, viewport: string, problems: Problems) {
   const before = problems.length;
   await page.goto(BASE + url);
   await settle(page);
@@ -78,6 +95,7 @@ async function inspect(page: Page, role: string, screen: string, url: string, vi
   const ok = found.length === 0;
   if (!ok) await page.screenshot({ path: path.join(OUT, `${role}-${screen.replace(/\W+/g, '_')}-${viewport}.png`), fullPage: true }).catch(() => undefined);
   results.push({ role, screen, path: url, viewport, ok, problems: found });
+  console.log(`${ok ? 'ok  ' : 'PROB'} ${role} · ${screen} @ ${viewport}${ok ? '' : `: ${found.slice(0, 3).join('; ')}`}`);
 }
 
 async function login(browser: Browser, identifier: string, password: string) {
@@ -119,15 +137,14 @@ async function sweepRole(browser: Browser, role: string, identifier: string, pas
     return;
   }
   const screens = await screensFor(page);
+  await page.close();
   for (const vp of VIEWPORTS) {
-    await page.setViewportSize({ width: vp.width, height: vp.height });
     for (const s of screens) {
-      const problems = watch(page);
-      await inspect(page, role, s.name, s.url, vp.name, problems);
-      page.removeAllListeners('console');
-      page.removeAllListeners('pageerror');
-      page.removeAllListeners('response');
-      page.removeAllListeners('requestfailed');
+      // A fresh tab for every check (same login), so memory never builds up across ~100 page loads.
+      const tab = await context.newPage();
+      await tab.setViewportSize({ width: vp.width, height: vp.height });
+      await inspect(tab, role, s.name, s.url, vp.name, watch(tab));
+      await tab.close();
     }
   }
   await context.close();
@@ -143,8 +160,11 @@ async function sweepPublic(browser: Browser) {
   ];
   for (const vp of VIEWPORTS) {
     const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
-    const page = await context.newPage();
-    for (const s of screens) await inspect(page, 'public', s.name, s.url, vp.name, watch(page));
+    for (const s of screens) {
+      const page = await context.newPage();
+      await inspect(page, 'public', s.name, s.url, vp.name, watch(page));
+      await page.close();
+    }
     await context.close();
   }
 }

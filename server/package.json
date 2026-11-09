@@ -12,6 +12,7 @@
     "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts && tsx src/tests/privacy.e2e.ts && tsx src/tests/oversight.e2e.ts && tsx src/tests/sms.e2e.ts && tsx src/tests/reminders.e2e.ts && tsx src/tests/admin.e2e.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@fap/shared": "*",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
@@ -22,6 +23,7 @@
     "htmlparser2": "^10.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.1",
+    "nodemailer": "^10.4.0",
     "pdf-lib": "^1.17.1",
     "sanitize-html": "^2.18.1",
     "zod": "^4.6.7"
@@ -32,8 +34,11 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.17.6",
+    "@types/nodemailer": "^8.0.2",
     "@types/sanitize-html": "^2.16.2",
+    "@types/smtp-server": "^3.5.13",
     "mongodb-memory-server": "^10.1.2",
+    "smtp-server": "^3.21.3",
     "tsx": "^4.19.2"
   }
 }

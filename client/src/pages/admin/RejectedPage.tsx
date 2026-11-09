@@ -37,7 +37,7 @@ export function RejectedPage() {
       />
 
       <form
-        className="card mb-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]"
+        className="card mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]"
         onSubmit={(e) => {
           e.preventDefault();
           set({ search: search.trim() || null });
