@@ -131,7 +131,16 @@ export async function generate(generatedId: mongoose.Types.ObjectId): Promise<Ge
       { $set: { status: 'generated', file, error: null }, ...(claimed.file ? { $push: { previousFiles: claimed.file } } : {}) },
       { new: true },
     );
-    if (done) void notifyAgreementGeneratedSms(done);
+    if (done) {
+      // PRD AD10: PDF generation is an audited action.
+      await audit({
+        action: 'agreement_pdf_generated',
+        targetType: 'generated_agreement',
+        targetId: done._id.toString(),
+        details: { referenceNumber: done.referenceNumber, pages: pageCount, sha256: file.sha256, attempt: claimed.attempts },
+      });
+      void notifyAgreementGeneratedSms(done);
+    }
     return done;
   } catch (err) {
     console.error('Agreement PDF generation failed:', err);
@@ -232,7 +241,7 @@ export async function emailDraft(id: string) {
   const g = await findGenerated(id);
   const [reg, settings] = await Promise.all([Registration.findById(g.registrationId), getSettings()]);
   if (!reg) throw new AppError(404, 'Agreement not found.', 'not_found');
-  return { recipient: reg.signatory!.email, ...defaultAgreementEmailText(reg.signatory!.name, g.referenceNumber, settings.organisationName) };
+  return { recipient: reg.signatory!.email, ...(await defaultAgreementEmailText(reg.signatory!.name, g.referenceNumber, settings.organisationName, reg.applicationId ?? '', reg.firmName)) };
 }
 
 /** N11: emails the PDF as an attachment to the signatory's registered email. Every attempt is logged. */

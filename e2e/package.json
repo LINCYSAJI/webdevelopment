@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Development only: recorded browser walkthrough of every flow.",
+  "description": "Development only: recorded browser walkthrough of every flow, and a screen sweep of every role at phone, tablet and desktop widths.",
   "scripts": {
-    "walkthrough": "tsx walkthrough.ts"
+    "walkthrough": "tsx walkthrough.ts",
+    "sweep": "tsx sweep.ts"
   },
   "devDependencies": {
     "ffmpeg-static": "^5.2.0",

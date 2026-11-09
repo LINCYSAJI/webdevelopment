@@ -15,7 +15,8 @@
     "seed:dev": "npm run seed:dev -w server",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w server",
-    "walkthrough": "npm run walkthrough -w e2e"
+    "walkthrough": "npm run walkthrough -w e2e",
+    "sweep": "npm run sweep -w e2e"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

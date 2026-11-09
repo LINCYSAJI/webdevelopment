@@ -6,6 +6,7 @@ import {
   agreementDraftSchema,
   dataRequestDeclineSchema,
   duplicateDecisionSchema,
+  emailTemplateUpdateSchema,
   smsSettingsSchema,
   smsTestSchema,
   dataRequestListQuerySchema,
@@ -25,6 +26,7 @@ import { validateBody, validateBodyDetailed } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
 import * as dataRequests from '../services/data-request.service';
 import * as duplicates from '../services/duplicate.service';
+import * as emailTemplates from '../services/email-template-admin.service';
 import * as generated from '../services/generated-agreement.service';
 import * as oversight from '../services/oversight.service';
 import * as scheduler from '../services/scheduler.service';
@@ -96,6 +98,38 @@ adminRouter.post(
   '/users/:role/:id/password-link',
   asyncHandler(async (req, res) => {
     res.json({ emailSent: await users.sendPasswordLink(managedRole(req.params.role), req.params.id, actor(req)) });
+  }),
+);
+
+// ---------- Email templates (PRD §11, §14) ----------
+
+adminRouter.get(
+  '/email-templates',
+  asyncHandler(async (_req, res) => {
+    res.json({ templates: await emailTemplates.listTemplates() });
+  }),
+);
+
+adminRouter.put(
+  '/email-templates/:key',
+  validateBody(emailTemplateUpdateSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ template: await emailTemplates.updateTemplate(req.params.key, req.body, actor(req)) });
+  }),
+);
+
+adminRouter.delete(
+  '/email-templates/:key',
+  asyncHandler(async (req, res) => {
+    res.json({ template: await emailTemplates.resetTemplate(req.params.key, actor(req)) });
+  }),
+);
+
+adminRouter.post(
+  '/email-templates/:key/preview',
+  validateBody(emailTemplateUpdateSchema),
+  asyncHandler(async (req, res) => {
+    res.json({ preview: await emailTemplates.previewTemplate(req.params.key, req.body) });
   }),
 );
 

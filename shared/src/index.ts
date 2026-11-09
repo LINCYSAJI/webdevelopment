@@ -10,3 +10,4 @@ export * from './workflow';
 export * from './legal';
 export * from './oversight';
 export * from './sms';
+export * from './email-templates';

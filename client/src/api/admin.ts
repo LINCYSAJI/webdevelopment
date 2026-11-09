@@ -14,6 +14,9 @@ import type {
   ReviewListRow,
   TrackingView,
   DailyCheckRunView,
+  EmailPreview,
+  EmailTemplateUpdate,
+  EmailTemplateView,
   ReassignInput,
   AdminUserView,
   AgreementDraftInput,
@@ -188,3 +191,12 @@ export const sendTestSms = (mobile: string, event: SmsEvent) =>
 export const listSmsLogs = (params: URLSearchParams) => api<Paginated<SmsLogRow>>(`/admin/sms/logs?${toQuery(params)}`);
 export const refreshSmsDelivery = () =>
   api<{ checked: number; updated: number; error: string | null }>('/admin/sms/logs/refresh-delivery', { method: 'POST' });
+
+// ---------- Email templates (PRD §11, §14) ----------
+
+export const listEmailTemplates = () => api<{ templates: EmailTemplateView[] }>('/admin/email-templates').then((r) => r.templates);
+export const saveEmailTemplate = (key: string, input: EmailTemplateUpdate) =>
+  api<{ template: EmailTemplateView }>(`/admin/email-templates/${key}`, { method: 'PUT', json: input }).then((r) => r.template);
+export const resetEmailTemplate = (key: string) => api<{ template: EmailTemplateView }>(`/admin/email-templates/${key}`, { method: 'DELETE' }).then((r) => r.template);
+export const previewEmailTemplate = (key: string, input: EmailTemplateUpdate) =>
+  api<{ preview: EmailPreview }>(`/admin/email-templates/${key}/preview`, { method: 'POST', json: input }).then((r) => r.preview);
