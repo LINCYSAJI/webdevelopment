@@ -78,11 +78,63 @@ export interface AdminDashboardView {
   alerts: ReviewListRow[];
 }
 
+/** One reminder (N13) or Admin escalation (N14) sent for an application. */
+export interface ReminderSentView {
+  at: string;
+  kind: ReminderKind;
+  /** Names of the people it was sent to. */
+  to: string;
+}
+
 /** AD4 pipeline. */
 export interface TrackingView {
   columns: { key: 'pending_accounts' | 'pending_manager' | 'approved' | 'rejected'; label: string; count: number; rows: ReviewListRow[] }[];
-  overdue: (ReviewListRow & { reminders: { at: string; to: string }[] })[];
+  /** Reminders sent during the application's current stage, oldest first. */
+  overdue: (ReviewListRow & { reminders: ReminderSentView[] })[];
   reminderFirstAfterDays: number;
+  reminderRepeatEveryDays: number;
+  escalationAfterDays: number;
+  /** The daily automatic check (PRD 10.8): when it runs and what it did last time. */
+  dailyCheck: { runTime: string; lastRun: DailyCheckRunView | null };
+}
+
+// ---------- Reminders and the daily automatic check (PRD 10.8, N13, N14) ----------
+
+export const REMINDER_KINDS = ['reminder', 'escalation'] as const;
+export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+/**
+ * Which reminder is due for an application that has waited `daysWaiting` business days, or 0 if
+ * none yet. The first is due once it has waited MORE than `after` business days (PRD A18, so an
+ * application that arrived on Monday afternoon gets its first reminder on Thursday morning), then
+ * one more every `repeatEvery` business days. A missed day sends only the latest reminder, never a
+ * burst of old ones.
+ */
+export function dueReminderNumber(daysWaiting: number, after: number, repeatEvery: number): number {
+  if (daysWaiting <= after) return 0;
+  return Math.floor((daysWaiting - after - 1) / Math.max(1, repeatEvery)) + 1;
+}
+
+export interface DailyCheckSummary {
+  /** It was a weekend or holiday, so reminders were not checked (clean-ups still ran). */
+  businessDay: boolean;
+  reminders: number;
+  escalations: number;
+  emailsSent: number;
+  emailsFailed: number;
+  unverifiedRemoved: number;
+  uploadsRemoved: number;
+  problems: string[];
+}
+
+export interface DailyCheckRunView {
+  /** The IST day it ran for, YYYY-MM-DD. */
+  day: string;
+  trigger: 'schedule' | 'admin';
+  startedAt: string;
+  finishedAt: string | null;
+  status: 'running' | 'finished' | 'failed';
+  summary: DailyCheckSummary | null;
 }
 
 // ---------- Duplicate Review (PRD AD3, 10.1) ----------

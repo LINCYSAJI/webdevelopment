@@ -41,7 +41,7 @@ Run from the repository root (npm workspaces: `shared/`, `server/`, `client/`, `
 | `npm run migrate` | Apply pending migrations (the API also applies them on startup) |
 | `npm run seed:dev` | Create dev logins `admin` / `accounts` / `manager` (`@portal.local`), password `Portal@2026`. Development only |
 | `npm run typecheck` | TypeScript check across all workspaces |
-| `npm test` | End-to-end API tests (8 suites) on a throwaway in-memory database (never touches dev data) |
+| `npm test` | End-to-end API tests (9 suites) on a throwaway in-memory database (never touches dev data) |
 | `npm run walkthrough` | With `npm run dev` running: drives a real browser through every main flow at a human pace and records `portal-walkthrough.mp4` (cursor, highlights, captions) plus `e2e/results/report.json` (steps, browser errors, failed requests). Creates one test application in the **development** database. First time only: `npx playwright install chromium` in `e2e/` |
 
 - The local database is downloaded and run by `server/src/scripts/local-db.ts` (via mongodb-memory-server's binary). It is for development only; production uses MongoDB Atlas.
@@ -82,7 +82,7 @@ The owner tracks the project on a board artifact: https://claude.ai/artifact/PMf
    - ✅ **Legal compliance (India, DPDP Act):** public `/privacy-policy` and `/terms` pages (`client/src/pages/legal/`, versions in `shared/src/legal.ts` `LEGAL_DOCUMENTS`), `LegalFooter` on every layout, mandatory `legalConsent` checkbox on register and resubmit saved by `recordConsent()` (append-only `consentrecords`), Settings fields `registeredAddress` / `grievanceOfficerName` / `grievanceOfficerEmail`. **Delete my account:** `data-request.service.ts` (request / cancel in My Profile, Admin AD12 erase or decline; erase is refused for approved agreements; status `withdrawn`). Tests: `server/src/tests/privacy.e2e.ts`
 7. ✅ **Admin oversight:** `oversight.service.ts` (AD1 dashboard with registrations-per-month chart and average business days per stage, AD2 all registrations with status / assignee filters + CSV export + read-only detail with Reassign, AD4 tracking pipeline, AD5 approved and rejected lists + exports) and `duplicate.service.ts` (AD3 list, side-by-side comparison, Not a Duplicate / Confirm Duplicate in one transaction with history + audit; confirm emails the reviewer). AD6 reuses the Manager list with Email History only (`/api/admin/generated-agreements`, no PDF route, Q1 default). CSV via `lib/csv.ts` (Excel BOM, formula-injection guard, PAN masked, exports audited). Tests: `server/src/tests/oversight.e2e.ts`
    - ✅ **SMS notifications (Networkz):** OTP + registration successful, Accounts/Manager approval and rejection, agreement generated; Admin **SMS Notifications** screen (gateway status with wallet balance, on/off switch, DLT template editor with wording check, test SMS, history, delivery status, error log); delivery webhook `/api/webhooks/networkz-sms` (secret header). Migration 011. Tests: `server/src/tests/sms.e2e.ts` (stand-in gateway built to the documented API)
-8. All notifications and business-day reminders
+8. ✅ **Notifications and business-day reminders:** `scheduler.service.ts` runs the daily check at the Settings run time (IST), exactly once per day across servers (claim = `jobruns` row `daily|YYYY-MM-DD`), plus Admin **Run the check now** on AD4 (`POST /api/admin/daily-check/run`). `reminder.service.ts`: N13 reminders and N14 Admin escalations on business days (`dueReminderNumber` in `shared/src/oversight.ts`, PRD A35), one digest email per person, append-only `reminderlogs` with a unique `dedupeKey` so nothing is sent twice; shown on AD4 with the last run. `cleanup.service.ts`: deletes Pending Verification registrations past the retention days with their records and files (A36) and unused uploads. Never changes a status. Migration 012. All N1–N15 checked. Tests: `server/src/tests/reminders.e2e.ts`
 9. Acceptance-checklist testing (PRD §16) and go-live preparation (Atlas, S3, email/SMS providers)
 
 Screens not built yet show a "planned for step N" placeholder; the step numbers come from `client/src/navigation.ts`.
@@ -110,7 +110,11 @@ Screens not built yet show a "planned for step N" placeholder; the step numbers 
 7. **No mock data or fake providers in the final product.** Seed data is for local development only.
 8. **There are no fees, payments or financial calculations** anywhere in the product (PRD D1).
 9. **Write important actions to the append-only audit log** (PRD AD10). Never update or delete audit rows.
-   - **The only exception to "permanent records / files are never changed or deleted"** is the DPDP erasure in `data-request.service.ts` `eraseRequest()` (PRD D16, A28), run by Admin on an applicant's request. Do not add other bypasses of `appendOnly`.
+   - **The only exceptions to "permanent records / files are never changed or deleted"** are:
+     - the DPDP erasure in `data-request.service.ts` `eraseRequest()` (PRD D16, A28), run by Admin on an applicant's request;
+     - the daily clean-up in `cleanup.service.ts` of registrations that never completed verification and uploads never submitted (PRD §6, A36).
+
+     Do not add other bypasses of `appendOnly`.
 10. **Uniqueness is enforced by MongoDB unique indexes**, not only in the UI:
     - one registration per PAN
     - one per GST, using a partial unique index because GST is optional

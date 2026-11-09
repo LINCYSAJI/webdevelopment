@@ -13,6 +13,7 @@ import type {
   ReviewApplicationView,
   ReviewListRow,
   TrackingView,
+  DailyCheckRunView,
   ReassignInput,
   AdminUserView,
   AgreementDraftInput,
@@ -159,6 +160,8 @@ export const getRegistration = (id: string, version?: number) =>
 export const adminDocumentUrl = (applicationId: string) => (documentId: string) => `/api/admin/registrations/${applicationId}/documents/${documentId}`;
 
 export const getTracking = () => api<{ tracking: TrackingView }>('/admin/tracking').then((r) => r.tracking);
+/** Runs the daily reminder check and clean-ups now (PRD 10.8). A reminder is never sent twice. */
+export const runDailyCheckNow = () => api<{ run: DailyCheckRunView }>('/admin/daily-check/run', { method: 'POST' }).then((r) => r.run);
 
 export const listApproved = (params: URLSearchParams) => api<Paginated<ReviewListRow>>(`/admin/approved?${toQuery(params)}`);
 export const approvedExportUrl = (params: URLSearchParams) => `/api/admin/approved/export?${toQuery(params)}`;

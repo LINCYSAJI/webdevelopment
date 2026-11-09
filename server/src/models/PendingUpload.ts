@@ -4,7 +4,8 @@ import { UPLOAD_KINDS } from '@fap/shared';
 /**
  * A file an applicant uploaded on the registration page but has not yet submitted.
  * The browser holds a secret token; only its hash is stored. Unclaimed uploads expire
- * after 24 hours; their stored files are removed by the scheduled clean-up (build step 8).
+ * after 24 hours; the daily clean-up (cleanup.service.ts) deletes their stored file and the row.
+ * As a fallback the row itself expires 7 days later (TTL, migration 012).
  */
 const pendingUploadSchema = new Schema({
   tokenHash: { type: String, required: true },

@@ -311,3 +311,45 @@ export function duplicateConfirmedEmail(name: string, applicationId: string, fir
     { label: 'Open the application', url },
   );
 }
+
+/** One application in a reminder or escalation email. */
+export interface ReminderLine {
+  applicationId: string;
+  firmName: string;
+  stage: 'pending_accounts' | 'pending_manager';
+  businessDaysWaiting: number;
+}
+
+const stageName = (stage: ReminderLine['stage']) => (stage === 'pending_accounts' ? 'Pending Accounts' : 'Pending Manager');
+const reminderLines = (lines: ReminderLine[]) =>
+  lines.map((l) => `• ${l.applicationId} (${l.firmName}): ${stageName(l.stage)}, waiting ${l.businessDaysWaiting} business day${l.businessDaysWaiting === 1 ? '' : 's'}`);
+
+/** N13 to Accounts / Manager users: applications waiting for them longer than the reminder period. */
+export function pendingReminderEmail(name: string, lines: ReminderLine[], url: string) {
+  const one = lines.length === 1;
+  return layout(
+    one ? `Reminder: ${lines[0].applicationId} is waiting for your review` : `Reminder: ${lines.length} applications are waiting for your review`,
+    [
+      `Hello ${name},`,
+      one ? 'This application is still waiting for a decision:' : 'These applications are still waiting for a decision:',
+      ...reminderLines(lines),
+      'Please review them in the portal. This is an automatic reminder; it does not change anything in the application.',
+    ],
+    { label: 'Open the portal', url },
+  );
+}
+
+/** N14 to Admin: applications waiting longer than the escalation period. */
+export function escalationEmail(name: string, lines: ReminderLine[], escalationAfterDays: number, url: string) {
+  const one = lines.length === 1;
+  return layout(
+    one ? `Overdue: ${lines[0].applicationId} has waited over ${escalationAfterDays} business days` : `Overdue: ${lines.length} applications have waited over ${escalationAfterDays} business days`,
+    [
+      `Hello ${name},`,
+      `${one ? 'This application has' : 'These applications have'} been waiting for more than ${escalationAfterDays} business days:`,
+      ...reminderLines(lines),
+      'You can follow up or reassign Accounts reviews from Approval Tracking. This alert does not change anything in the application.',
+    ],
+    { label: 'Open Approval Tracking', url },
+  );
+}

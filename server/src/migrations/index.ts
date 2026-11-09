@@ -10,6 +10,7 @@ import m008 from './008-last-submitted';
 import m009 from './009-manager-agreements';
 import m010 from './010-privacy';
 import m011 from './011-sms';
+import m012 from './012-reminders';
 
 export interface Migration {
   id: string;
@@ -17,4 +18,4 @@ export interface Migration {
 }
 
 // Append new migrations to the end. Never edit or reorder ones already applied.
-export const migrations: Migration[] = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011];
+export const migrations: Migration[] = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011, m012];

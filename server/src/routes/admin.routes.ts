@@ -27,6 +27,7 @@ import * as dataRequests from '../services/data-request.service';
 import * as duplicates from '../services/duplicate.service';
 import * as generated from '../services/generated-agreement.service';
 import * as oversight from '../services/oversight.service';
+import * as scheduler from '../services/scheduler.service';
 import * as smsAdmin from '../services/sms-admin.service';
 import { listAuditActions, listAuditLogs } from '../services/audit.service';
 import * as settings from '../services/settings.service';
@@ -323,6 +324,23 @@ adminRouter.get(
   '/tracking',
   asyncHandler(async (_req, res) => {
     res.json({ tracking: await oversight.tracking() });
+  }),
+);
+
+// Runs the daily automatic check now (PRD 10.8). Safe to repeat: a reminder is never sent twice.
+const dailyCheckLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'The check was run several times just now. Please wait a few minutes.' } },
+});
+
+adminRouter.post(
+  '/daily-check/run',
+  dailyCheckLimiter,
+  asyncHandler(async (req, res) => {
+    res.json({ run: await scheduler.runDailyCheck({ trigger: 'admin', actor: actor(req) }) });
   }),
 );
 

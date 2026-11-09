@@ -7,16 +7,17 @@ import { config } from '../config';
 /**
  * Private file storage. Files are never reachable by a public link: the API checks
  * permissions and then streams them. Only metadata and the storage key live in MongoDB.
- * Stored files are never overwritten, and deleted only when an applicant's personal data is
- * erased at their request (DPDP Act s.12, see data-request.service.ts), so earlier versions
- * otherwise always stay available.
+ * Stored files are never overwritten, and deleted only (1) when an applicant's personal data is
+ * erased at their request (DPDP Act s.12, see data-request.service.ts) or (2) by the daily
+ * clean-up of registrations that were never verified and uploads never submitted
+ * (cleanup.service.ts), so earlier versions otherwise always stay available.
  */
 export interface StorageProvider {
   put(key: string, data: Buffer): Promise<void>;
   open(key: string): Promise<{ stream: Readable; size: number }>;
   /** Reads a whole file into memory (for files that are processed, e.g. merged into a PDF). */
   read(key: string): Promise<Buffer>;
-  /** Permanently deletes a file. Used ONLY by the DPDP erasure of an applicant's data. */
+  /** Permanently deletes a file. Used ONLY by the DPDP erasure and the daily clean-up (cleanup.service.ts). */
   remove(key: string): Promise<void>;
 }
 

@@ -13,6 +13,8 @@ import {
   type ApplicationStatus,
   type Paginated,
   type RejectionRow,
+  type ReminderKind,
+  type ReminderSentView,
   type ReviewApplicationView,
   type ReviewListRow,
   type TrackingView,
@@ -22,10 +24,12 @@ import { AppError } from '../lib/errors';
 import { DuplicateFlag } from '../models/DuplicateFlag';
 import { Registration, type RegistrationDocument } from '../models/Registration';
 import { RegistrationHistory } from '../models/RegistrationHistory';
+import { ReminderLog } from '../models/ReminderLog';
 import { getSettings } from '../models/Settings';
 import { User } from '../models/User';
 import { openRegistrationDocument } from './application-view.service';
 import { audit } from './audit.service';
+import { lastDailyCheck } from './scheduler.service';
 import { agreementCounts, buildReviewView, holidaySet, istBoundary, listApplications, toRows, waitingSince } from './review.service';
 import type { Actor } from './users.service';
 
@@ -216,6 +220,21 @@ export async function tracking(): Promise<TrackingView> {
     Registration.countDocuments({ status: { $in: ['rejected_by_accounts', 'rejected_by_manager'] } }),
   ]);
   const [paRows, pmRows, approvedRows, rejectedRows] = await Promise.all([toRows(pa), toRows(pm, true), toRows(approved), toRows(rejected)]);
+  const overdue = [...paRows, ...pmRows].filter((r) => r.overdue).sort((a, b) => b.businessDaysWaiting - a.businessDaysWaiting);
+
+  // Reminders (N13) and escalations (N14) sent during each overdue application's current stage.
+  const enteredAt = new Map([...pa, ...pm].map((r) => [r._id.toString(), waitingSince(r)]));
+  const logs = overdue.length
+    ? await ReminderLog.find({ $or: overdue.map((r) => ({ registrationId: new mongoose.Types.ObjectId(r.id), stageEnteredAt: enteredAt.get(r.id) })) }).sort({ at: 1 })
+    : [];
+  const remindersByReg = new Map<string, ReminderSentView[]>();
+  for (const log of logs) {
+    const list = remindersByReg.get(log.registrationId.toString()) ?? [];
+    list.push({ at: log.at.toISOString(), kind: log.kind as ReminderKind, to: log.recipients.map((u) => u.name).join(', ') });
+    remindersByReg.set(log.registrationId.toString(), list);
+  }
+  const lastRun = await lastDailyCheck();
+
   return {
     columns: [
       { key: 'pending_accounts', label: 'Pending Accounts', count: paRows.length, rows: paRows },
@@ -223,9 +242,11 @@ export async function tracking(): Promise<TrackingView> {
       { key: 'approved', label: 'Approved', count: approvedCount, rows: approvedRows },
       { key: 'rejected', label: 'Rejected', count: rejectedCount, rows: rejectedRows },
     ],
-    // Reminder emails are sent by the daily reminder job (build step 8); until then this list is empty.
-    overdue: [...paRows, ...pmRows].filter((r) => r.overdue).sort((a, b) => b.businessDaysWaiting - a.businessDaysWaiting).map((r) => ({ ...r, reminders: [] })),
+    overdue: overdue.map((r) => ({ ...r, reminders: remindersByReg.get(r.id) ?? [] })),
     reminderFirstAfterDays: settings.reminderFirstAfterDays,
+    reminderRepeatEveryDays: settings.reminderRepeatEveryDays,
+    escalationAfterDays: settings.escalationAfterDays,
+    dailyCheck: { runTime: settings.reminderRunTime, lastRun },
   };
 }
 

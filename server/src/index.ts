@@ -3,6 +3,7 @@ import { config } from './config';
 import { connectDb } from './db';
 import { createApp } from './app';
 import { runMigrations } from './migrations/runner';
+import { startScheduler, stopScheduler } from './services/scheduler.service';
 
 async function main() {
   await connectDb();
@@ -12,8 +13,10 @@ async function main() {
   const server = createApp().listen(config.PORT, () => {
     console.log(`API server running at http://localhost:${config.PORT}`);
   });
+  startScheduler();
 
   const shutdown = async () => {
+    stopScheduler();
     server.close();
     await mongoose.disconnect();
     process.exit(0);
