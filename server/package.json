@@ -9,7 +9,9 @@
     "migrate": "tsx src/scripts/migrate.ts",
     "seed:dev": "tsx src/scripts/seed-dev.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts && tsx src/tests/privacy.e2e.ts && tsx src/tests/oversight.e2e.ts && tsx src/tests/sms.e2e.ts && tsx src/tests/reminders.e2e.ts && tsx src/tests/admin.e2e.ts"
+    "test": "tsx src/tests/registration.e2e.ts && tsx src/tests/verification.e2e.ts && tsx src/tests/otp.e2e.ts && tsx src/tests/workflow.e2e.ts && tsx src/tests/manager.e2e.ts && tsx src/tests/privacy.e2e.ts && tsx src/tests/oversight.e2e.ts && tsx src/tests/sms.e2e.ts && tsx src/tests/reminders.e2e.ts && tsx src/tests/admin.e2e.ts && tsx src/tests/golive.e2e.ts",
+    "start": "tsx src/index.ts",
+    "create-admin": "tsx src/scripts/create-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",
@@ -26,6 +28,7 @@
     "nodemailer": "^10.4.0",
     "pdf-lib": "^1.17.1",
     "sanitize-html": "^2.18.1",
+    "tsx": "^4.19.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -38,7 +41,6 @@
     "@types/sanitize-html": "^2.16.2",
     "@types/smtp-server": "^3.5.13",
     "mongodb-memory-server": "^10.1.2",
-    "smtp-server": "^3.21.3",
-    "tsx": "^4.19.2"
+    "smtp-server": "^3.21.3"
   }
 }

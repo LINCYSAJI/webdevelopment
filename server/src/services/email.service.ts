@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { config } from '../config';
+import { SmtpEmail } from '../lib/smtp-email';
 import { NotificationLog } from '../models/NotificationLog';
 
 export interface EmailMessage {
@@ -32,10 +33,30 @@ const devOutboxProvider: EmailProvider = {
   },
 };
 
+let smtpProvider: EmailProvider | null = null;
+
+/** Any email provider's SMTP service (Amazon SES, SendGrid, Brevo, Zoho, ...), always over TLS. */
+function smtp(): EmailProvider {
+  if (!smtpProvider) {
+    const client = new SmtpEmail({
+      host: config.SMTP_HOST!,
+      port: config.SMTP_PORT,
+      user: config.SMTP_USER,
+      password: config.SMTP_PASSWORD,
+      from: config.EMAIL_FROM!,
+      replyTo: config.EMAIL_REPLY_TO,
+    });
+    smtpProvider = { name: 'smtp', send: (message) => client.send(message) };
+  }
+  return smtpProvider;
+}
+
 function getProvider(): EmailProvider {
   switch (config.EMAIL_PROVIDER) {
     case 'dev_outbox':
       return devOutboxProvider;
+    case 'smtp':
+      return smtp();
   }
 }
 

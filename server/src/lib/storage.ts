@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { config } from '../config';
+import { S3Storage } from './s3-storage';
 
 /**
  * Private file storage. Files are never reachable by a public link: the API checks
@@ -51,4 +52,20 @@ class LocalStorage implements StorageProvider {
   }
 }
 
-export const storage: StorageProvider = new LocalStorage();
+function createStorage(): StorageProvider {
+  if (config.STORAGE_PROVIDER === 's3') {
+    return new S3Storage({
+      bucket: config.S3_BUCKET!,
+      region: config.S3_REGION,
+      endpoint: config.S3_ENDPOINT,
+      accessKeyId: config.S3_ACCESS_KEY_ID!,
+      secretAccessKey: config.S3_SECRET_ACCESS_KEY!,
+      forcePathStyle: config.S3_FORCE_PATH_STYLE === 'true',
+      // AWS only: other S3-compatible providers encrypt by default and may refuse the header.
+      serverSideEncryption: !config.S3_ENDPOINT,
+    });
+  }
+  return new LocalStorage();
+}
+
+export const storage: StorageProvider = createStorage();

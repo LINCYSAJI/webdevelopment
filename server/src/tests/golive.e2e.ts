@@ -82,7 +82,8 @@ const received: { from: string; to: string[]; raw: string; user: string | undefi
 const smtp = new SMTPServer({
   secure: false,
   authOptional: false,
-  disabledCommands: [],
+  // No certificate here: the stand-in offers no TLS, so the portal's default (TLS required) must refuse it.
+  disabledCommands: ['STARTTLS'],
   allowInsecureAuth: true,
   onAuth(auth, _session, cb) {
     if (auth.username === 'mailer' && auth.password === 'secret') return cb(null, { user: auth.username });
@@ -101,9 +102,13 @@ await new Promise<void>((r) => smtp.listen(0, '127.0.0.1', () => r()));
 const smtpPort = (smtp.server.address() as AddressInfo).port;
 
 // The stand-in has no TLS certificate, so for this local check only TLS is not required.
+const allowPlain = (m: SmtpEmail) => {
+  const o = (m as unknown as { transporter: { transporter: { options: { requireTLS: boolean; ignoreTLS: boolean } } } }).transporter.transporter.options;
+  o.requireTLS = false;
+  o.ignoreTLS = true;
+};
 const mailer = new SmtpEmail({ host: '127.0.0.1', port: smtpPort, user: 'mailer', password: 'secret', from: 'Franchise Portal <no-reply@example.com>', replyTo: 'support@example.com' });
-(mailer as unknown as { transporter: { options: { requireTLS: boolean; ignoreTLS: boolean } } }).transporter.options.requireTLS = false;
-(mailer as unknown as { transporter: { options: { requireTLS: boolean; ignoreTLS: boolean } } }).transporter.options.ignoreTLS = true;
+allowPlain(mailer);
 await mailer.send({
   to: 'priya@example.com',
   subject: 'Application submitted: APP-2026-0001',
@@ -116,8 +121,7 @@ ok('SMTP: email delivered to the recipient after logging in', mail?.to.join() ==
 ok('SMTP: sender, reply-to and subject are set', !!mail && mail.from === 'no-reply@example.com' && /Reply-To: support@example\.com/i.test(mail.raw) && /Subject: Application submitted: APP-2026-0001/.test(mail.raw));
 ok('SMTP: HTML and plain-text versions and the PDF attachment are included', !!mail && /text\/html/.test(mail.raw) && /text\/plain/.test(mail.raw) && /filename=FRN-2026-0001\.pdf/.test(mail.raw));
 const wrong = new SmtpEmail({ host: '127.0.0.1', port: smtpPort, user: 'mailer', password: 'bad', from: 'x@example.com' });
-(wrong as unknown as { transporter: { options: { requireTLS: boolean; ignoreTLS: boolean } } }).transporter.options.requireTLS = false;
-(wrong as unknown as { transporter: { options: { requireTLS: boolean; ignoreTLS: boolean } } }).transporter.options.ignoreTLS = true;
+allowPlain(wrong);
 ok('SMTP: a wrong password is reported as a failure (retried and logged by the email service)', await wrong.send({ to: 'a@example.com', subject: 's', html: 'h', text: 't' }).then(() => false, () => true));
 const plain = new SmtpEmail({ host: '127.0.0.1', port: smtpPort, user: 'mailer', password: 'secret', from: 'x@example.com' });
 ok('SMTP: by default an email is never sent without TLS encryption', await plain.send({ to: 'a@example.com', subject: 's', html: 'h', text: 't' }).then(() => false, () => true));
@@ -126,7 +130,7 @@ smtp.close();
 // ---------- Production start-up guards ----------
 const serverDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 function startWith(env: Record<string, string>) {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '-e', "await import('./src/config.ts'); console.log('CONFIG OK')"], {
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '-e', "import('./src/config.ts').then(() => console.log('CONFIG OK'))"], {
     cwd: serverDir,
     env: { PATH: process.env.PATH ?? '', SYSTEMROOT: process.env.SYSTEMROOT ?? '', DOTENV_CONFIG_PATH: 'none.env', ...env },
     encoding: 'utf8',
