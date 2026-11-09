@@ -769,6 +769,8 @@ All settings changes are written to the audit log.
 
 The build is complete only when every item passes.
 
+Evidence for every item (automated tests, browser sweep, and what the owner still confirms): [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
+
 **Registration and verification**
 - [ ] Registration is closed when no agreement version is active, and opens once one is published.
 - [ ] All field validations work, including PAN format, GST format, GST-to-PAN match and mobile format.
@@ -876,6 +878,8 @@ These are defaults the team will follow unless the product owner says otherwise.
 | A35 | **Reminder timing:** a reminder is due once an application has waited **more than** the "first reminder after" number of business days (matching *Overdue*, A18), checked at the daily run time. Example with the defaults: arrived Monday → first reminder Thursday 09:00, then every 2 business days; Admin alert from the 6th business day, repeated every 2. Each person gets **one email per day** listing all their applications that are due, rather than one email per application. If the check could not run on some day, only the latest reminder is sent, never a burst of missed ones. An Accounts application that is unassigned (or whose reviewer is inactive) reminds every active Accounts user |
 | A36 | **Clean-up of unverified registrations:** registrations still in Pending Verification more than the retention days after they were submitted (default 7) are deleted **with their documents, files, submission snapshot, agreement acceptance and consent record**, because they never became an account (PRD §6, Privacy Policy). The audit log and email/SMS delivery logs are kept as security records. The same PAN or GST can then register again. Files uploaded on the registration page but never submitted are deleted after 24 hours |
 | A37 | Admin can press **Run the check now** on Approval Tracking. It is safe to repeat: a reminder is never sent twice. Each run, its results and anything that needs attention are shown there and written to the audit log |
+| A38 | **Email templates:** each email's subject and text are editable in Admin › Email Templates with `{{merge_fields}}` (the agreement's fields plus ones specific to that email, such as `{{reason}}` or `{{code}}`). Fields an email cannot work without (the code in an OTP email, the reason in a rejection) cannot be removed. The organisation header, the button and its link are added automatically and are not editable, so an email can never point to a wrong address. Text is always shown as typed (no HTML). The N11 template is the starting wording in the Manager's Send dialog |
+| A39 | **Go-live services:** email is sent through the chosen provider's **SMTP** service (any provider works; Amazon SES, SendGrid, Brevo or Zoho are typical), and files are kept in a private **S3-compatible** bucket (AWS S3 Mumbai, Cloudflare R2 or similar). Neither choice locks the portal to a vendor. The server can host the website itself on the same HTTPS address |
 | A28 | Erasure is the one permitted exception to "records are permanent" and "stored files are never deleted": it overwrites personal details in submission versions and acceptance records and deletes uploaded files, as the DPDP Act requires. The audit log, history and consent record are kept as proof |
 
 ### 18.2 Open questions for the product owner
