@@ -564,7 +564,7 @@ function renderOverview() {
   const stats = document.getElementById('stats');
   stats.replaceChildren(
     ...counts.map(([s, n]) => el('div', { class: 'stat' }, el('b', { text: String(n) }), el('span', { text: s.label }))),
-    el('div', { class: 'stat' }, el('b', { text: '7' }), el('span', { text: 'Automated test suites, all passing' })),
+    el('div', { class: 'stat' }, el('b', { text: String(SYNC.tests.suites) }), el('span', { text: SYNC.tests.passing ? 'Automated test suites, all passing' : 'Automated test suites, some failing' })),
     el('div', { class: 'stat' }, el('b', { text: String(SCREENS.length) }), el('span', { text: 'Screens in the portal' })),
   );
 
