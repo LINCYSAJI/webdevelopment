@@ -340,19 +340,20 @@ tr:last-child td { border-bottom: 0; }
 // Edit only between the START and END markers. Everything below END is the page's code.
 // =====================================================================================
 const SYNC = {
-  date: '2026-11-09',
-  developmentHead: 'aeb893d',
-  developmentCommits: 32,
+  date: '2026-11-11',
+  developmentHead: 'a61d237',
+  developmentCommits: 34,
   productionHead: '7c3cc7f',
   productionLabel: 'Initial commit: steps 1-4',
-  aheadOfProduction: 31,
+  aheadOfProduction: 33,
   remote: 'github.com/LINCYSAJI/webdevelopment',
   pushed: true,
-  tests: { suites: 11, passing: true, atCommit: 'aeb893d' },
+  tests: { suites: 11, passing: true, atCommit: 'a61d237' },
   uncommittedAtSync: 0,
-  headline: 'Phase 9 code complete · all 37 acceptance items pass; your go-live set-up is next',
+  headline: 'Gmail connected: test email sent · remaining go-live set-up is with you',
 };
 const COMMITS = [
+  ['a61d237', '2026-11-11', 'Gmail SMTP: EMAIL_* settings, connection check, Admin test email'],
   ['aeb893d', '2026-11-09', 'Step 9: acceptance evidence for every PRD 16 item, CLAUDE.md and PRD updates'],
   ['48fafeb', '2026-11-09', 'Go-live: private S3 storage, SMTP email, single-server hosting, start-up guards'],
   ['e1d6b42', '2026-11-09', 'Screen sweep fixes, Rejected filters fit tablets, go-live building blocks'],
@@ -362,7 +363,6 @@ const COMMITS = [
   ['8638c3c', '2026-11-07', 'Tidy the example server settings file'],
   ['7c97724', '2026-11-06', 'SMS notifications through the Networkz Systems gateway'],
   ['9efe543', '2026-11-05', 'Add the recorded browser walkthrough (npm run walkthrough)'],
-  ['2a8d181', '2026-11-05', 'Check the login without a failed request for logged-out visitors'],
 ];
 const STATUSES = [
   { key: 'planned', label: 'Planned', hint: 'Scoped for a later phase' },
@@ -478,7 +478,8 @@ const CARDS = [
   { t: 'Private file storage connection (S3)', p: '9', s: 'done', a: 'Infrastructure', d: 'Works with AWS S3, Cloudflare R2 and similar; never public, never overwrites.', r: 'Rule 4, A39' },
   { t: 'Create the private bucket', p: '9', s: 'notstarted', a: 'Infrastructure', d: 'Private bucket with public access blocked and a limited access key (docs/GO-LIVE.md).', r: 'A39', w: true },
   { t: 'Email connection (SMTP)', p: '9', s: 'done', a: 'Infrastructure', d: 'Works with any provider over TLS; tested with attachments.', r: 'A39' },
-  { t: 'Choose an email provider and verify the domain', p: '9', s: 'notstarted', a: 'Infrastructure', d: 'For example Amazon SES, SendGrid, Brevo or Zoho; add SPF, DKIM and DMARC records.', r: 'A39', w: true },
+  { t: 'Gmail email connected', p: '9', s: 'test', a: 'Infrastructure', d: 'Gmail SMTP with an App Password; connection check and test email in Admin › Email Templates. Test email sent.', r: 'A39' },
+  { t: 'Email provider for go-live volume', p: '9', s: 'notstarted', a: 'Infrastructure', d: 'Gmail allows about 500 emails a day; for more, a business provider (Google Workspace, SES, Brevo) with SPF, DKIM and DMARC.', r: 'A39', w: true },
   { t: 'Choose a host and domain (HTTPS)', p: '9', s: 'notstarted', a: 'Infrastructure', d: 'Any Node.js host; the portal address must use https.', r: '§15', w: true },
   { t: 'Choose and connect an SMS gateway', p: '9', s: 'done', a: 'Infrastructure', d: 'Networkz Systems chosen and connected (sender NETSYS).', r: 'D17' },
   { t: 'Connect the SMS delivery webhook', p: '9', s: 'notstarted', a: 'Infrastructure', d: 'Once the portal has a public address: create the webhook in the Networkz panel with the secret header.', r: 'D17', w: true },
