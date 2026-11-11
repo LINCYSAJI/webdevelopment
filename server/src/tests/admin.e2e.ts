@@ -14,6 +14,8 @@ const rs = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine:
 process.env.NODE_ENV = 'test';
 // Never use a real SMS gateway from server/.env in tests: every text goes to the test mailbox.
 process.env.SMS_PROVIDER = 'dev_outbox';
+// Never use a real email account from server/.env in tests either.
+process.env.EMAIL_PROVIDER = 'dev_outbox';
 process.env.MONGODB_URI = rs.getUri('admin_test');
 process.env.LOCAL_STORAGE_DIR = storageDir;
 process.env.JWT_ACCESS_SECRET ??= 'x'.repeat(40);
@@ -275,6 +277,41 @@ r = await adminB.call('POST', '/admin/holidays', { date: '2026-12-25', name: 'Ch
 ok('Admin adds a public holiday', r.status === 201, r.body);
 r = await adminB.call('DELETE', `/admin/holidays/${r.body.holiday.id}`);
 ok('and removes it', r.status === 200 || r.status === 204, r.status);
+
+// ---------- Email delivery: status and test email (Admin only) ----------
+r = await adminB.call('GET', '/admin/email/status');
+ok('Admin sees the email service status', r.status === 200 && r.body.status.provider === 'dev_outbox' && r.body.status.connection.ok === true, r.body);
+ok('the status never contains a password', !/password/i.test(JSON.stringify(r.body)));
+r = await adminB.call('POST', '/admin/email/test', { to: 'Owner@Example.com' });
+await settle();
+const testMail = await outbox().findOne({ to: 'owner@example.com', subject: 'Test email from the Franchise Agreement Portal' });
+ok('Admin sends a branded test email', r.status === 200 && r.body.sent === true && !!testMail && /email delivery is working/.test(testMail.text) && /Franchise Agreement Portal/.test(testMail.html), r.body);
+ok('the test email is audited', !!(await AuditLog.exists({ action: 'email_test_sent' })));
+r = await adminB.call('POST', '/admin/email/test', { to: 'not-an-email' });
+ok('a test email to an invalid address is refused', r.status === 400, r.status);
+for (const [who, b] of [['Accounts', ashaB], ['Manager', miraB], ['franchise user', a.browser], ['logged-out', anon]] as const) {
+  const [x, y] = await Promise.all([b.call('GET', '/admin/email/status'), b.call('POST', '/admin/email/test', { to: 'x@example.com' })]);
+  ok(`${who} cannot see email settings or send test emails`, [x.status, y.status].every((st) => st === 401 || st === 403), [x.status, y.status]);
+}
+
+// Verification codes never appear in the server log.
+const logged: string[] = [];
+const originalLog = console.log;
+console.log = (...args: unknown[]) => {
+  logged.push(args.map(String).join(' '));
+};
+const reg3 = await anon.call('POST', '/public/registrations', {
+  franchiseModel: 'Express', firmType: 'Partnership Firm', firmName: 'Gamma Stores', pan: 'GGGGG3333G', panFile: await up('document', plain), gst: null,
+  signatory: { name: 'Gita', capacity: 'Partner', email: 'g@example.com', mobile: '9300000001', idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) },
+  contacts: [{ name: 'Ravi', email: 'gc@example.com', mobile: '7300000001', idProofFile: await up('document', PNG), photoFile: await up('photo', PNG) }],
+  agreement: { agreementVersionId: v2.id, accepted: true }, legalConsent: true, acknowledgeDuplicates: true,
+});
+for (const channel of ['email', 'sms'] as const) await anon.call('POST', '/public/verification/send', { token: reg3.body.verificationToken, channel });
+await settle();
+console.log = originalLog;
+const sentCodes = [await latestCode('g@example.com'), await latestCode('9300000001')];
+ok('verification codes were sent', sentCodes.every((c) => /^\d{6}$/.test(c)), sentCodes);
+ok('the codes never appear in the server log', sentCodes.every((c) => !logged.some((l) => l.includes(c))), logged.filter((l) => sentCodes.some((c) => l.includes(c))));
 
 // ---------- AD10: the audit log ----------
 await anon.call('POST', '/auth/login', { identifier: 'asha', password: 'wrong-password' });

@@ -39,6 +39,11 @@ export class SmtpEmail {
     });
   }
 
+  /** Connects and logs in without sending anything: proves the host, port, TLS and login work. */
+  async verify() {
+    await this.transporter.verify();
+  }
+
   async send(message: SmtpMessage) {
     await this.transporter.sendMail({
       from: this.opts.from,

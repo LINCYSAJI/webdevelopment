@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateTimeIST, type EmailPreview, type EmailTemplateView } from '@fap/shared';
-import { listEmailTemplates, previewEmailTemplate, resetEmailTemplate, saveEmailTemplate } from '../../api/admin';
+import { getEmailStatus, listEmailTemplates, previewEmailTemplate, resetEmailTemplate, saveEmailTemplate, sendTestEmail, type EmailDeliveryStatus } from '../../api/admin';
+import { useAuth } from '../../auth/AuthContext';
 import { ApiError } from '../../api/client';
 import { Alert, Badge, Loading, Modal, PageHeader, SecondaryButton } from '../../components/ui';
 
@@ -127,6 +128,69 @@ function TemplateEditor({ template, onSaved }: { template: EmailTemplateView; on
   );
 }
 
+/** Which email service is used, whether it connects, and a test email (Admin only). */
+function EmailDeliveryCard() {
+  const { user } = useAuth();
+  const [status, setStatus] = useState<EmailDeliveryStatus | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [to, setTo] = useState(user?.email ?? '');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  const check = () => {
+    setChecking(true);
+    getEmailStatus()
+      .then(setStatus)
+      .catch(() => setStatus(null))
+      .finally(() => setChecking(false));
+  };
+  useEffect(check, []);
+
+  async function send() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await sendTestEmail(to);
+      setMessage({ tone: 'success', text: r.provider === 'smtp' ? `Test email sent to ${to}. Check the inbox (and the spam folder).` : 'Test email saved in the development test mailbox.' });
+    } catch (err) {
+      setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : 'The test email could not be sent.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="font-semibold text-slate-900">Email delivery</h2>
+          <p className="text-sm text-slate-600">The email service the portal sends through. Its login details are kept on the server only.</p>
+        </div>
+        {checking ? <Badge>Checking…</Badge> : status?.connection.ok ? <Badge color="green">Connected</Badge> : <Badge color="red">Not connected</Badge>}
+      </div>
+      {status && (
+        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+          <div className="min-w-0"><dt className="inline text-slate-500">Service: </dt><dd className="inline break-words text-slate-900">{status.provider === 'smtp' ? `${status.host} : ${status.port} (${status.security})` : 'Development test mailbox'}</dd></div>
+          {status.from && <div className="min-w-0"><dt className="inline text-slate-500">Sender: </dt><dd className="inline break-words text-slate-900">{status.from}</dd></div>}
+          {status.login && <div className="min-w-0"><dt className="inline text-slate-500">Login: </dt><dd className="inline break-words text-slate-900">{status.login}</dd></div>}
+        </dl>
+      )}
+      {status && !status.connection.ok && <Alert tone="error">{status.connection.error}</Alert>}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="test-email-to" className="label">Send a test email to</label>
+          <input id="test-email-to" type="email" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <button type="button" className="btn-primary" onClick={send} disabled={busy || !to}>
+          {busy ? 'Sending…' : 'Send test email'}
+        </button>
+        <SecondaryButton onClick={check} disabled={checking}>Check connection</SecondaryButton>
+      </div>
+      {message && <Alert tone={message.tone}>{message.text}</Alert>}
+    </section>
+  );
+}
+
 /** Admin › Email Templates: the wording of every email the portal sends (PRD §11, §14). */
 export function EmailTemplatesPage() {
   const [templates, setTemplates] = useState<EmailTemplateView[] | null>(null);
@@ -150,6 +214,7 @@ export function EmailTemplatesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader title="Email Templates" description="The wording of every email the portal sends. Changes apply to the next email; emails already sent are not affected." />
+      <EmailDeliveryCard />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div>
           <label htmlFor="tpl-select" className="label lg:sr-only">

@@ -70,6 +70,8 @@ Object.assign(process.env, {
   MONGODB_URI: rs.getUri('sms_test'),
   LOCAL_STORAGE_DIR: storageDir,
   SMS_PROVIDER: 'networkz',
+  // Never use a real email account from server/.env in tests.
+  EMAIL_PROVIDER: 'dev_outbox',
   NETWORKZ_SMS_BASE_URL: `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`,
   NETWORKZ_SMS_ACCESS_TOKEN: TOKEN,
   NETWORKZ_SMS_ACCESS_TOKEN_KEY: KEY,

@@ -173,5 +173,35 @@ refused('SMTP without a sender address', { EMAIL_FROM: '' }, /EMAIL_FROM/);
 refused('S3 without a bucket', { S3_BUCKET: '' }, /S3_BUCKET/);
 refused('a short session secret', { JWT_ACCESS_SECRET: 'short' }, /JWT_ACCESS_SECRET/);
 
+// ---------- Gmail settings written with EMAIL_* names ----------
+function configWith(env: Record<string, string>) {
+  const r = spawnSync(
+    process.execPath,
+    ['--import', 'tsx', '-e', "import('./src/config.ts').then(({ config: c }) => console.log('CFG ' + JSON.stringify({ p: c.EMAIL_PROVIDER, h: c.SMTP_HOST, port: c.SMTP_PORT, u: c.SMTP_USER, pw: c.SMTP_PASSWORD, from: c.EMAIL_FROM })))"],
+    { cwd: serverDir, env: { PATH: process.env.PATH ?? '', SYSTEMROOT: process.env.SYSTEMROOT ?? '', DOTENV_CONFIG_PATH: 'none.env', MONGODB_URI: 'mongodb://127.0.0.1:27017/x', JWT_ACCESS_SECRET: 'p'.repeat(40), ...env }, encoding: 'utf8' },
+  );
+  const line = /CFG (.*)/.exec(r.stdout)?.[1];
+  return line ? JSON.parse(line) : { error: `${r.stdout}${r.stderr}`.slice(0, 300) };
+}
+const gmail = configWith({
+  EMAIL_PROVIDER: 'gmail',
+  EMAIL_HOST: 'smtp.gmail.com',
+  EMAIL_PORT: '587',
+  EMAIL_SECURE: 'false',
+  EMAIL_USER: 'portal.mailer@gmail.com',
+  EMAIL_PASSWORD: 'abcd efgh ijkl mnop',
+  EMAIL_FROM_NAME: 'Franchise Agreement Portal',
+  EMAIL_FROM_EMAIL: 'portal.mailer@gmail.com',
+});
+ok('Gmail: EMAIL_PROVIDER=gmail with EMAIL_* names becomes SMTP on smtp.gmail.com:587', gmail.p === 'smtp' && gmail.h === 'smtp.gmail.com' && gmail.port === 587 && gmail.u === 'portal.mailer@gmail.com', gmail);
+ok('Gmail: the sender shows the portal name', gmail.from === '"Franchise Agreement Portal" <portal.mailer@gmail.com>', gmail.from);
+ok('Gmail: spaces in the App Password are removed', gmail.pw === 'abcdefghijklmnop');
+const gmailMinimal = configWith({ EMAIL_PROVIDER: 'gmail', EMAIL_USER: 'portal.mailer@gmail.com', EMAIL_PASSWORD: 'abcdefghijklmnop' });
+ok('Gmail: host, port and sender default sensibly', gmailMinimal.h === 'smtp.gmail.com' && gmailMinimal.port === 587 && gmailMinimal.from === 'portal.mailer@gmail.com', gmailMinimal);
+const noPassword = configWith({ EMAIL_PROVIDER: 'gmail', EMAIL_USER: 'portal.mailer@gmail.com' });
+ok('Gmail: a missing password stops the server with a clear message', /EMAIL_PASSWORD/.test(noPassword.error ?? ''), noPassword);
+const smtpNames = configWith({ EMAIL_PROVIDER: 'smtp', SMTP_HOST: 'smtp.example.com', SMTP_USER: 'u', SMTP_PASSWORD: 'p w', EMAIL_FROM: 'x@example.com', EMAIL_HOST: 'ignored.example.com' });
+ok('the SMTP_* names still work and win over EMAIL_* names (spaces kept for non-Gmail)', smtpNames.h === 'smtp.example.com' && smtpNames.pw === 'p w', smtpNames);
+
 console.log(failures ? `${failures} check(s) failed` : 'All checks passed');
 process.exit(failures ? 1 : 0);

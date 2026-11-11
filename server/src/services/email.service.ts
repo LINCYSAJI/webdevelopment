@@ -29,14 +29,15 @@ const devOutboxProvider: EmailProvider = {
       attachments: (attachments ?? []).map((a) => ({ filename: a.filename, size: a.content.length, contentType: a.contentType })),
       at: new Date(),
     });
-    console.log(`[test mailbox] to=${message.to} subject="${message.subject}"`);
+    // The subject may contain a verification code, so only the kind of email is logged.
+    console.log(`[test mailbox] email to=${message.to} event=${message.event}`);
   },
 };
 
-let smtpProvider: EmailProvider | null = null;
+let smtpProvider: (EmailProvider & { verify(): Promise<void> }) | null = null;
 
 /** Any email provider's SMTP service (Amazon SES, SendGrid, Brevo, Zoho, ...), always over TLS. */
-function smtp(): EmailProvider {
+function smtp(): EmailProvider & { verify(): Promise<void> } {
   if (!smtpProvider) {
     const client = new SmtpEmail({
       host: config.SMTP_HOST!,
@@ -46,9 +47,33 @@ function smtp(): EmailProvider {
       from: config.EMAIL_FROM!,
       replyTo: config.EMAIL_REPLY_TO,
     });
-    smtpProvider = { name: 'smtp', send: (message) => client.send(message) };
+    smtpProvider = { name: 'smtp', send: (message) => client.send(message), verify: () => client.verify() };
   }
   return smtpProvider;
+}
+
+/** Admin › Email delivery: which provider is used, and (for SMTP) whether it can connect and log in. */
+export async function checkEmailConnection(): Promise<{ provider: string; ok: boolean; error: string | null }> {
+  if (config.EMAIL_PROVIDER !== 'smtp') return { provider: config.EMAIL_PROVIDER, ok: true, error: null };
+  try {
+    await smtp().verify();
+    return { provider: 'smtp', ok: true, error: null };
+  } catch (err) {
+    return { provider: 'smtp', ok: false, error: friendlySmtpError(err) };
+  }
+}
+
+/** A plain-language reason for an SMTP failure (never includes the password). */
+export function friendlySmtpError(err: unknown): string {
+  const e = err as { code?: string; responseCode?: number; message?: string };
+  const text = e?.message ?? String(err);
+  if (e?.code === 'EAUTH' || e?.responseCode === 535) {
+    return /gmail|google/i.test(text) || /gmail/i.test(config.SMTP_HOST ?? '')
+      ? 'Gmail refused the login. Use a Google App Password (Google Account › Security › 2-Step Verification › App passwords), not the normal Gmail password.'
+      : 'The email provider refused the login. Check the email user name and password.';
+  }
+  if (e?.code === 'ETIMEDOUT' || e?.code === 'ECONNECTION' || e?.code === 'ESOCKET' || e?.code === 'ECONNREFUSED') return `Could not reach the email server (${e.code}). Check the host and port, and that this network allows outgoing email on that port.`;
+  return text.replace(/\s+/g, ' ').slice(0, 300);
 }
 
 function getProvider(): EmailProvider {
@@ -104,7 +129,7 @@ export async function sendEmailWithResult(message: EmailMessage): Promise<{ ok: 
     provider: provider.name,
     status: 'failed',
     attempts: MAX_ATTEMPTS,
-    error: lastError instanceof Error ? lastError.message : String(lastError),
+    error: friendlySmtpError(lastError),
   });
-  return { ok: false, error: lastError instanceof Error ? lastError.message : String(lastError) };
+  return { ok: false, error: friendlySmtpError(lastError) };
 }

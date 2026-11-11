@@ -13,7 +13,8 @@ const envSchema = z.object({
   // How many proxies / load balancers sit in front of the server (for correct visitor IPs).
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(1),
   // Email. `dev_outbox` stores emails in the database and shows them on the development mailbox
-  // page (refused in production); `smtp` sends through any email provider's SMTP service.
+  // page (refused in production); `smtp` sends through any email provider's SMTP service;
+  // `gmail` is accepted as SMTP through Gmail (see normaliseEmailEnv below).
   EMAIL_PROVIDER: z.enum(['dev_outbox', 'smtp']).default('dev_outbox'),
   SMTP_HOST: z.string().trim().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
@@ -51,7 +52,38 @@ const envSchema = z.object({
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+/**
+ * Email settings may also be written with EMAIL_* names (EMAIL_HOST, EMAIL_PORT, EMAIL_USER,
+ * EMAIL_PASSWORD, EMAIL_FROM_NAME, EMAIL_FROM_EMAIL, EMAIL_SECURE), and EMAIL_PROVIDER=gmail means
+ * SMTP through Gmail (smtp.gmail.com, port 587, STARTTLS, Google App Password). SMTP_* names win
+ * when both are set. Nothing here is ever printed.
+ */
+function normaliseEmailEnv(e: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out = { ...e };
+  const set = (key: string, value: string | undefined) => {
+    if (value !== undefined && value !== '' && (out[key] === undefined || out[key] === '')) out[key] = value;
+  };
+  const provider = (out.EMAIL_PROVIDER ?? '').trim().toLowerCase();
+  if (provider === 'gmail') {
+    out.EMAIL_PROVIDER = 'smtp';
+    set('SMTP_HOST', out.EMAIL_HOST || 'smtp.gmail.com');
+    set('SMTP_PORT', out.EMAIL_PORT || '587');
+  }
+  set('SMTP_HOST', out.EMAIL_HOST);
+  set('SMTP_PORT', out.EMAIL_PORT);
+  set('SMTP_USER', out.EMAIL_USER);
+  set('SMTP_PASSWORD', out.EMAIL_PASSWORD);
+  // EMAIL_SECURE=true means implicit TLS, which uses port 465 (587 always upgrades with STARTTLS).
+  if ((out.EMAIL_SECURE ?? '').trim().toLowerCase() === 'true' && !out.EMAIL_PORT && !out.SMTP_PORT) out.SMTP_PORT = '465';
+  const fromEmail = (out.EMAIL_FROM_EMAIL || out.EMAIL_USER || '').trim();
+  const fromName = (out.EMAIL_FROM_NAME ?? '').trim().replace(/["<>]/g, '');
+  if (fromEmail) set('EMAIL_FROM', fromName ? `"${fromName}" <${fromEmail}>` : fromEmail);
+  // Google shows App Passwords in groups of four ("abcd efgh ijkl mnop"); the spaces are not part of it.
+  if (/(^|\.)gmail\.com$|googlemail\.com$/i.test(out.SMTP_HOST ?? '') && out.SMTP_PASSWORD) out.SMTP_PASSWORD = out.SMTP_PASSWORD.replace(/\s+/g, '');
+  return out;
+}
+
+const parsed = envSchema.safeParse(normaliseEmailEnv(process.env));
 if (!parsed.success) {
   console.error('Invalid server configuration (check server/.env):');
   console.error(parsed.error.flatten().fieldErrors);
@@ -67,7 +99,8 @@ const env = parsed.data;
 // A provider's required settings, whatever the environment.
 if (env.EMAIL_PROVIDER === 'smtp') {
   if (!env.SMTP_HOST) fail('EMAIL_PROVIDER=smtp needs SMTP_HOST.');
-  if (!env.EMAIL_FROM) fail('EMAIL_PROVIDER=smtp needs EMAIL_FROM, e.g. "Franchise Portal <no-reply@yourcompany.in>".');
+  if (!env.EMAIL_FROM) fail('EMAIL_PROVIDER=smtp needs EMAIL_FROM (or EMAIL_FROM_EMAIL), e.g. "Franchise Portal <no-reply@yourcompany.in>".');
+  if (env.SMTP_USER && !env.SMTP_PASSWORD) fail('The email login needs its password: set EMAIL_PASSWORD (or SMTP_PASSWORD).');
 }
 if (env.STORAGE_PROVIDER === 's3') {
   if (!env.S3_BUCKET) fail('STORAGE_PROVIDER=s3 needs S3_BUCKET.');

@@ -26,6 +26,7 @@ import { validateBody, validateBodyDetailed } from '../middleware/validate';
 import * as agreements from '../services/agreement.service';
 import * as dataRequests from '../services/data-request.service';
 import * as duplicates from '../services/duplicate.service';
+import * as emailAdmin from '../services/email-admin.service';
 import * as emailTemplates from '../services/email-template-admin.service';
 import * as generated from '../services/generated-agreement.service';
 import * as oversight from '../services/oversight.service';
@@ -130,6 +131,32 @@ adminRouter.post(
   validateBody(emailTemplateUpdateSchema),
   asyncHandler(async (req, res) => {
     res.json({ preview: await emailTemplates.previewTemplate(req.params.key, req.body) });
+  }),
+);
+
+// ---------- Email delivery: status and test email ----------
+
+const testEmailLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many test emails. Please wait a few minutes.' } },
+});
+
+adminRouter.get(
+  '/email/status',
+  asyncHandler(async (_req, res) => {
+    res.json({ status: await emailAdmin.deliveryStatus() });
+  }),
+);
+
+adminRouter.post(
+  '/email/test',
+  testEmailLimiter,
+  validateBody(emailAdmin.testEmailSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await emailAdmin.sendTestEmail(req.body.to, actor(req)));
   }),
 );
 

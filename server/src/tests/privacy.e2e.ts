@@ -13,6 +13,8 @@ const rs = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine:
 process.env.NODE_ENV = 'test';
 // Never use a real SMS gateway from server/.env in tests: every text goes to the test mailbox.
 process.env.SMS_PROVIDER = 'dev_outbox';
+// Never use a real email account from server/.env in tests either.
+process.env.EMAIL_PROVIDER = 'dev_outbox';
 process.env.MONGODB_URI = rs.getUri('privacy_test');
 process.env.LOCAL_STORAGE_DIR = storageDir;
 process.env.JWT_ACCESS_SECRET ??= 'x'.repeat(40);

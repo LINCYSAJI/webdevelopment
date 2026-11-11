@@ -200,3 +200,17 @@ export const saveEmailTemplate = (key: string, input: EmailTemplateUpdate) =>
 export const resetEmailTemplate = (key: string) => api<{ template: EmailTemplateView }>(`/admin/email-templates/${key}`, { method: 'DELETE' }).then((r) => r.template);
 export const previewEmailTemplate = (key: string, input: EmailTemplateUpdate) =>
   api<{ preview: EmailPreview }>(`/admin/email-templates/${key}/preview`, { method: 'POST', json: input }).then((r) => r.preview);
+
+// ---------- Email delivery (Admin only) ----------
+
+export interface EmailDeliveryStatus {
+  provider: 'dev_outbox' | 'smtp';
+  host: string | null;
+  port: number | null;
+  security: string | null;
+  login: string | null;
+  from: string | null;
+  connection: { ok: boolean; error: string | null; checkedAt: string };
+}
+export const getEmailStatus = () => api<{ status: EmailDeliveryStatus }>('/admin/email/status').then((r) => r.status);
+export const sendTestEmail = (to: string) => api<{ sent: boolean; provider: string }>('/admin/email/test', { method: 'POST', json: { to } });
